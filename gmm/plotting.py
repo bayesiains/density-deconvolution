@@ -3,6 +3,12 @@ import matplotlib as mpl
 
 
 def plot_covariance(mean, cov, ax, alpha=0.5, color=None):
+    """
+    Plots a Gaussian convariance on a Matplotlib axis
+
+    Adapted from https://scikit-learn.org/stable/auto_examples/
+    mixture/plot_gmm_covariances.html
+    """
     v, w = np.linalg.eigh(cov)
     u = w[0] / np.linalg.norm(w[0])
     angle = np.arctan2(u[1], u[0]) * 180 / np.pi
