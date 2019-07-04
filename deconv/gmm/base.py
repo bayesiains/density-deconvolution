@@ -9,7 +9,7 @@ mvn = dist.multivariate_normal.MultivariateNormal
 class BaseGMM(ABC):
 
     def __init__(self, components, dimensions, max_iters=100,
-                 chol_factor=1e-6, tol=1e-9, restarts=5):
+                 chol_factor=1e-6, tol=1e-9, restarts=5, device=None):
         self.k = components
         self.d = dimensions
         self.max_iters = max_iters
@@ -17,10 +17,17 @@ class BaseGMM(ABC):
         self.tol = tol
         self.restarts = restarts
 
-        self.weights = torch.empty(self.k)
-        self.means = torch.empty(self.k, self.d)
-        self.covars = torch.empty(self.k, self.d, self.d)
-        self.chol_covars = torch.empty(self.k, self.d, self.d)
+        if not device:
+            self.device = torch.device('cpu')
+        else:
+            self.device = device
+
+        self.weights = torch.empty(self.k, device=self.device)
+        self.means = torch.empty(self.k, self.d, device=self.device)
+        self.covars = torch.empty(self.k, self.d, self.d, device=self.device)
+        self.chol_covars = torch.empty(
+            self.k, self.d, self.d, device=self.device
+        )
 
     def _kmeans_init(self, X, max_iters=50, tol=1e-9):
 
@@ -29,12 +36,14 @@ class BaseGMM(ABC):
         x_min = torch.min(X, dim=0)[0]
         x_max = torch.max(X, dim=0)[0]
 
-        resp = torch.zeros(n, self.k, dtype=torch.bool)
+        resp = torch.zeros(n, self.k, dtype=torch.bool, device=self.device)
         idx = torch.arange(n)
 
-        centroids = torch.rand(self.k, self.d) * (x_max - x_min) + x_min
+        centroids = torch.rand(
+            self.k, self.d, device=self.device
+        ) * (x_max - x_min) + x_min
 
-        prev_distance = torch.tensor(float('inf'))
+        prev_distance = torch.tensor(float('inf'), device=self.device)
 
         for i in range(max_iters):
             distances = (X[:, None, :] - centroids[None, :, :]).norm(dim=2)
@@ -53,17 +62,19 @@ class BaseGMM(ABC):
 
     def fit(self, data):
 
-        best_log_prob = torch.tensor(float('-inf'))
+        n_inf = torch.tensor(float('-inf'), device=self.device)
+
+        best_log_prob = torch.tensor(float('-inf'), device=self.device)
 
         for j in range(self.restarts):
             expectations = self._init_expectations(data)
             self._m_step(data, expectations)
 
-            prev_log_prob = torch.tensor(float('-inf'))
+            prev_log_prob = torch.tensor(float('-inf'), device=self.device)
 
             for i in range(self.max_iters):
                 log_prob, expectations = self._e_step(data)
-                if log_prob == torch.tensor(float('-inf')):
+                if log_prob == n_inf:
                     break
                 self._m_step(data, expectations)
 
@@ -81,9 +92,10 @@ class BaseGMM(ABC):
                 )
                 best_log_prob = log_prob
 
-        if best_log_prob == torch.tensor(float('-inf')):
+        if best_log_prob == n_inf:
             raise ValueError('Could not fit model. Try increasing chol_reg?')
         self.weights, self.means, self.covars, self.chol_covars = best_params
+        print(self.weights.device)
 
     def predict(self, X):
         return torch.exp(self._e_step(X)[1])

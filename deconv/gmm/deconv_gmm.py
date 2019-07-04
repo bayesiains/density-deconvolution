@@ -17,7 +17,9 @@ class DeconvGMM(BaseGMM):
         log_resps = torch.log(resps)
 
         cond_means = X[:, None, :].repeat(1, self.k, 1)
-        cond_covars = torch.eye(self.d).repeat(n, self.k, 1, 1)
+        cond_covars = torch.eye(self.d, device=self.device).repeat(
+            n, self.k, 1, 1
+        )
 
         return (log_resps, cond_means, cond_covars)
 
@@ -29,14 +31,16 @@ class DeconvGMM(BaseGMM):
         X, noise_covars = data
 
         n = X.shape[0]
-        log_resps = torch.empty(n, self.k)
+        log_resps = torch.empty(n, self.k, device=self.device)
 
         T = self.covars[None, :, :, :] + noise_covars[:, None, :, :]
         try:
             T_chol = torch.cholesky(T)
         except RuntimeError:
             return torch.tensor(float('-inf')), None
-        T_inv = torch.cholesky_solve(torch.eye(self.d), T_chol)
+        T_inv = torch.cholesky_solve(
+            torch.eye(self.d, device=self.device), T_chol
+        )
 
         for j in range(self.k):
             log_resps[:, j] = mvn(

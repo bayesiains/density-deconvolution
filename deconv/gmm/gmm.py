@@ -26,7 +26,7 @@ class GMM(BaseGMM):
         X = data[0]
 
         n = X.shape[0]
-        log_resps = torch.empty(n, self.k)
+        log_resps = torch.empty(n, self.k, device=self.device)
 
         for j in range(self.k):
             log_resps[:, j] = mvn(
@@ -54,7 +54,7 @@ class GMM(BaseGMM):
                 diff
             ) / weights[:, j]
             self.covars[j, :, :] += torch.diag(
-                self.chol_factor * torch.ones(self.d)
+                self.chol_factor * torch.ones(self.d, device=self.device)
             )
 
         self.weights = weights / n

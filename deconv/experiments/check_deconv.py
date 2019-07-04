@@ -8,7 +8,10 @@ from deconv.gmm.plotting import plot_covariance
 from deconv.gmm.deconv_gmm import DeconvGMM
 
 
-def check_deconv_gmm(D, K, N, plot=False):
+def check_deconv_gmm(D, K, N, plot=False, device=None):
+
+    if not device:
+        device = torch.device('cpu')
 
     means = (np.random.rand(K, D) * 20) - 10
     q = (2 * np.random.randn(K, D, D))
@@ -32,11 +35,13 @@ def check_deconv_gmm(D, K, N, plot=False):
             )
 
     data = (
-        torch.from_numpy(X.reshape(-1, D).astype(np.float32)),
-        torch.from_numpy(noise_covars.reshape(-1, D, D).astype(np.float32))
+        torch.Tensor(X.reshape(-1, D).astype(np.float32)).to(device),
+        torch.Tensor(
+            noise_covars.reshape(-1, D, D).astype(np.float32)
+        ).to(device)
     )
 
-    gmm = DeconvGMM(K, D, max_iters=1000)
+    gmm = DeconvGMM(K, D, max_iters=1000, device=device)
     gmm.fit(data)
 
     if plot:
