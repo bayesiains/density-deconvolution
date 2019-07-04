@@ -14,7 +14,7 @@ def check_deconv_gmm(D, K, N, plot=False):
     q = (2 * np.random.randn(K, D, D))
     covars = np.matmul(q.swapaxes(1, 2), q)
 
-    qn = (0.1 * np.random.randn(N, K, D, D))
+    qn = (0.5 * np.random.randn(N, K, D, D))
     noise_covars = np.matmul(qn.swapaxes(2, 3), qn)
 
     X = np.empty((N, K, D))
@@ -67,6 +67,6 @@ def check_deconv_gmm(D, K, N, plot=False):
 if __name__ == '__main__':
     sns.set()
     D = 2
-    K = 3
-    N = 200
+    K = 5
+    N = 2000
     check_deconv_gmm(D, K, N, plot=True)
