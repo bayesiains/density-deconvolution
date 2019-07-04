@@ -32,7 +32,13 @@ def check_gmm(D, K, N, plot=False):
         fig, ax = plt.subplots()
 
         for i in range(K):
-            sc = ax.scatter(X[:, i, 0], X[:, i, 1], alpha=0.2, marker='x')
+            sc = ax.scatter(
+                X[:, i, 0],
+                X[:, i, 1],
+                alpha=0.2,
+                marker='x',
+                label='Cluster {}'.format(i)
+            )
             plot_covariance(
                 means[i, :],
                 covars[i, :, :],
@@ -40,7 +46,12 @@ def check_gmm(D, K, N, plot=False):
                 color=sc.get_facecolor()[0]
             )
 
-        sc = ax.scatter(gmm.means[:, 0], gmm.means[:, 1], marker='+')
+        sc = ax.scatter(
+            gmm.means[:, 0],
+            gmm.means[:, 1],
+            marker='+',
+            label='Fitted Gaussians'
+        )
 
         for i in range(K):
 
@@ -51,6 +62,7 @@ def check_gmm(D, K, N, plot=False):
                 color=sc.get_facecolor()[0]
             )
 
+        ax.legend()
         plt.show()
 
 
