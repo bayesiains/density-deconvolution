@@ -1,10 +1,12 @@
+from abc import ABC, abstractmethod
+
 import torch
 import torch.distributions as dist
 
 mvn = dist.multivariate_normal.MultivariateNormal
 
 
-class BasicGMM:
+class BaseGMM(ABC):
 
     def __init__(self, components, dimensions, max_iters=100,
                  chol_factor=1e-6, tol=1e-9):
@@ -48,17 +50,16 @@ class BasicGMM:
 
         return resp.float()
 
-    def fit(self, X):
+    def fit(self, data):
 
-        resps = self._kmeans_init(X)
-        log_resps = torch.log(resps)
-        self._m_step(X, log_resps)
+        expectations = self._init_expectations(data)
+        self._m_step(data, expectations)
 
         prev_log_prob = torch.tensor(float('-inf'))
 
         for i in range(self.max_iters):
-            log_prob, log_resps = self._e_step(X)
-            self._m_step(X, log_resps)
+            log_prob, expectations = self._e_step(data)
+            self._m_step(data, expectations)
 
             if torch.abs(log_prob - prev_log_prob) < self.tol:
                 break
@@ -68,38 +69,14 @@ class BasicGMM:
     def predict(self, X):
         return torch.exp(self._e_step(X)[1])
 
-    def _e_step(self, X):
+    @abstractmethod
+    def _init_expectations(self, data):
+        pass
 
-        n = X.shape[0]
-        log_resps = torch.empty(n, self.k)
+    @abstractmethod
+    def _e_step(self, data):
+        pass
 
-        for j in range(self.k):
-            log_resps[:, j] = mvn(
-                loc=self.means[j, :],
-                scale_tril=self.chol_covars[j, :, :]
-            ).log_prob(X)
-            log_resps += torch.log(self.weights[:, j])
-
-        log_prob = torch.logsumexp(log_resps, dim=1, keepdim=True)
-        log_resps -= log_prob
-
-        return torch.sum(log_prob), log_resps
-
-    def _m_step(self, X, log_resps):
-        n = X.shape[0]
-        resps = torch.exp(log_resps)
-        weights = torch.sum(resps, dim=0, keepdim=True)
-        self.means = torch.mm(torch.t(resps), X) / torch.t(weights)
-
-        for j in range(self.k):
-            diff = X - self.means[j, :]
-            self.covars[j, :, :] = torch.mm(
-                resps[:, j] * torch.t(diff),
-                diff
-            ) / weights[:, j]
-            self.covars[j, :, :] += torch.diag(
-                self.chol_factor * torch.ones(self.d)
-            )
-            self.chol_covars[j] = torch.cholesky(self.covars[j])
-
-        self.weights = weights / n
+    @abstractmethod
+    def _m_step(self, data, expectations):
+        pass

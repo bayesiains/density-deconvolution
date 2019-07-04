@@ -3,10 +3,9 @@ import torch
 
 import matplotlib.pyplot as plt
 import seaborn as sns
-sns.set()
 
 from deconv.gmm.plotting import plot_covariance
-from deconv.gmm.gmm import GMM
+from deconv.gmm.deconv_gmm import DeconvGMM
 
 D = 2
 K = 3
@@ -15,7 +14,11 @@ N = 200
 
 means = (np.random.rand(K, D) * 20) - 10
 q = (2 * np.random.randn(K, D, D))
-covars = np.matmul(q.swapaxes(1, 2), q)
+covars = np.matmul(q.swapaxes(1,2), q)
+
+qn = (0.1 * np.random.randn(N, K, D, D))
+noise_covars = np.matmul(qn.swapaxes(2, 3), qn)
+
 
 X = np.empty((N, K, D))
 
@@ -27,6 +30,11 @@ for i in range(K):
         cov=covars[i, :, :],
         size=N
     )
+    for j in range(N):
+        X[j, i, :] += np.random.multivariate_normal(
+            mean=np.zeros(D),
+            cov=noise_covars[j, i, :, :]
+        )
     sc = ax.scatter(X[:, i, 0], X[:, i, 1], alpha=0.2, marker='x')
     plot_covariance(
         means[i, :],
@@ -35,10 +43,14 @@ for i in range(K):
         color=sc.get_facecolor()[0]
     )
 
-X_data = torch.from_numpy(X.reshape(-1, D).astype(np.float32))
+data = (
+    torch.from_numpy(X.reshape(-1, D).astype(np.float32)),
+    torch.from_numpy(noise_covars.reshape(-1, D, D).astype(np.float32))
+)
 
-gmm = GMM(K, D, max_iters=1000)
-gmm.fit((X_data,))
+
+gmm = DeconvGMM(K, D, max_iters=1000)
+gmm.fit(data)
 
 sc = ax.scatter(gmm.means[:, 0], gmm.means[:, 1], marker='+')
 
