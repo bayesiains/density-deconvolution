@@ -18,6 +18,11 @@ class GMM(BaseGMM):
 
     def _e_step(self, data):
 
+        try:
+            self.chol_covars = torch.cholesky(self.covars)
+        except RuntimeError:
+            return torch.tensor(float('-inf')), None
+
         X = data[0]
 
         n = X.shape[0]
@@ -51,6 +56,5 @@ class GMM(BaseGMM):
             self.covars[j, :, :] += torch.diag(
                 self.chol_factor * torch.ones(self.d)
             )
-            self.chol_covars[j] = torch.cholesky(self.covars[j])
 
         self.weights = weights / n

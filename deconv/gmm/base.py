@@ -9,12 +9,13 @@ mvn = dist.multivariate_normal.MultivariateNormal
 class BaseGMM(ABC):
 
     def __init__(self, components, dimensions, max_iters=100,
-                 chol_factor=1e-6, tol=1e-9):
+                 chol_factor=1e-6, tol=1e-9, restarts=5):
         self.k = components
         self.d = dimensions
         self.max_iters = max_iters
         self.chol_factor = chol_factor
         self.tol = tol
+        self.restarts = restarts
 
         self.weights = torch.empty(self.k)
         self.means = torch.empty(self.k, self.d)
@@ -52,19 +53,40 @@ class BaseGMM(ABC):
 
     def fit(self, data):
 
-        expectations = self._init_expectations(data)
-        self._m_step(data, expectations)
+        best_log_prob = torch.tensor(float('-inf'))
 
-        prev_log_prob = torch.tensor(float('-inf'))
-
-        for i in range(self.max_iters):
-            log_prob, expectations = self._e_step(data)
+        for j in range(self.restarts):
+            expectations = self._init_expectations(data)
             self._m_step(data, expectations)
 
-            if torch.abs(log_prob - prev_log_prob) < self.tol:
-                break
+            prev_log_prob = torch.tensor(float('-inf'))
 
-            prev_log_prob = log_prob
+            for i in range(self.max_iters):
+                log_prob, expectations = self._e_step(data)
+                if log_prob == torch.tensor(float('-inf')):
+                    break
+                self._m_step(data, expectations)
+
+                if torch.abs(log_prob - prev_log_prob) < self.tol:
+                    break
+
+                prev_log_prob = log_prob
+
+            print(log_prob)
+
+            if log_prob > best_log_prob:
+                best_params = (
+                    self.weights.clone().detach(),
+                    self.means.clone().detach(),
+                    self.covars.clone().detach(),
+                    self.chol_covars.clone().detach()
+                )
+                best_log_prob = log_prob
+
+        if best_log_prob == torch.tensor(float('-inf')):
+            raise ValueError('Could not fit model. Try increasing chol_reg?')
+        self.weights, self.means, self.covars, self.chol_covars = best_params
+        print(best_log_prob)
 
     def predict(self, X):
         return torch.exp(self._e_step(X)[1])
