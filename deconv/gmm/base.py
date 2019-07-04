@@ -72,8 +72,6 @@ class BaseGMM(ABC):
 
                 prev_log_prob = log_prob
 
-            print(log_prob)
-
             if log_prob > best_log_prob:
                 best_params = (
                     self.weights.clone().detach(),
@@ -86,7 +84,6 @@ class BaseGMM(ABC):
         if best_log_prob == torch.tensor(float('-inf')):
             raise ValueError('Could not fit model. Try increasing chol_reg?')
         self.weights, self.means, self.covars, self.chol_covars = best_params
-        print(best_log_prob)
 
     def predict(self, X):
         return torch.exp(self._e_step(X)[1])
