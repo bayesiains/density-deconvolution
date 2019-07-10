@@ -1,7 +1,9 @@
+from abc import ABC
+
 import torch
 import torch.distributions as dist
 import torch.nn as nn
-import torch.utils.data as data
+import torch.utils.data as data_utils
 
 from .util import k_means
 
@@ -55,7 +57,7 @@ class SGDGMMModule(nn.Module):
         return -1 * torch.sum(log_prob)
 
 
-class SGDGMM:
+class BaseSGDGMM(ABC):
 
     def __init__(self, components, dimensions, epochs=10000, lr=1e-3,
                  batch_size=64, tol=1e-6, device=None):
@@ -71,7 +73,6 @@ class SGDGMM:
         else:
             self.device = device
 
-        self.module = SGDGMMModule(self.k, self.d, self.device)
         self.module.to(device)
 
         self.optimiser = torch.optim.Adam(
@@ -87,13 +88,11 @@ class SGDGMM:
     def covars(self):
         return self.module.covars.detach()
 
-    def fit(self, X, verbose=True):
+    def fit(self, data, verbose=True):
 
-        loader = data.DataLoader(X, batch_size=self.batch_size)
+        loader = data_utils.DataLoader(data, batch_size=self.batch_size)
 
-        _, means = k_means(X, self.k, device=self.device)
-
-        self.module.means.data = means
+        self.init_params(data)
 
         prev_loss = torch.tensor(float('inf'))
 
@@ -113,3 +112,18 @@ class SGDGMM:
             if torch.abs(running_loss - prev_loss) < self.tol:
                 break
             prev_loss = running_loss
+
+
+class SGDGMM(BaseSGDGMM):
+
+    def __init__(self, components, dimensions, epochs=10000, lr=1e-3,
+                 batch_size=64, tol=1e-6, device=None):
+        self.module = SGDGMMModule(components, dimensions, device)
+        super().__init__(
+            components, dimensions, epochs=epochs, lr=lr,
+            batch_size=batch_size, tol=tol, device=device
+        )
+
+    def init_params(self, data):
+        _, means = k_means(data, self.k, device=self.device)
+        self.module.means.data = means

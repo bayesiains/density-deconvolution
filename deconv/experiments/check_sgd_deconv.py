@@ -5,10 +5,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from deconv.gmm.plotting import plot_covariance
-from deconv.gmm.sgd_gmm import SGDGMM
+from deconv.gmm.sgd_deconv_gmm import SGDDeconvGMM, SGDDeconvDataset
 
 
-def check_sgd_gmm(D, K, N, plot=False, device=None):
+def check_sgd_deconv_gmm(D, K, N, plot=False, device=None):
 
     if not device:
         device = torch.device('cpu')
@@ -16,6 +16,9 @@ def check_sgd_gmm(D, K, N, plot=False, device=None):
     means = (np.random.rand(K, D) * 20) - 10
     q = (2 * np.random.randn(K, D, D))
     covars = np.matmul(q.swapaxes(1, 2), q)
+
+    qn = (0.5 * np.random.randn(N, K, D, D))
+    noise_covars = np.matmul(qn.swapaxes(2, 3), qn)
 
     X = np.empty((N, K, D))
 
@@ -25,11 +28,21 @@ def check_sgd_gmm(D, K, N, plot=False, device=None):
             cov=covars[i, :, :],
             size=N
         )
+        for j in range(N):
+            X[j, i, :] += np.random.multivariate_normal(
+                mean=np.zeros(D),
+                cov=noise_covars[j, i, :, :]
+            )
 
-    X_data = torch.Tensor(X.reshape(-1, D).astype(np.float32)).to(device)
+    data = SGDDeconvDataset(
+        torch.Tensor(X.reshape(-1, D).astype(np.float32)).to(device),
+        torch.Tensor(
+            noise_covars.reshape(-1, D, D).astype(np.float32)
+        ).to(device)
+    )
 
-    gmm = SGDGMM(K, D, device=device)
-    gmm.fit(X_data)
+    gmm = SGDDeconvGMM(K, D, device=device)
+    gmm.fit(data)
 
     if plot:
         fig, ax = plt.subplots()
@@ -57,7 +70,6 @@ def check_sgd_gmm(D, K, N, plot=False, device=None):
         )
 
         for i in range(K):
-
             plot_covariance(
                 gmm.means[i, :],
                 gmm.covars[i, :, :],
@@ -74,4 +86,4 @@ if __name__ == '__main__':
     D = 2
     K = 3
     N = 200
-    check_sgd_gmm(D, K, N, plot=True)
+    check_sgd_deconv_gmm(D, K, N, plot=True)
