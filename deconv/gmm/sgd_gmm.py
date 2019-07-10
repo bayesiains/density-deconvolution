@@ -57,13 +57,14 @@ class SGDGMMModule(nn.Module):
 
 class SGDGMM:
 
-    def __init__(self, components, dimensions, epochs=10000, batch_size=64,
-                 tol=1e-6, device=None):
+    def __init__(self, components, dimensions, epochs=10000, lr=1e-3,
+                 batch_size=64, tol=1e-6, device=None):
         self.k = components
         self.d = dimensions
         self.epochs = epochs
         self.batch_size = batch_size
         self.tol = 1e-6
+        self.lr = lr
 
         if not device:
             self.device = torch.device('cpu')
@@ -75,7 +76,7 @@ class SGDGMM:
 
         self.optimiser = torch.optim.Adam(
             params=self.module.parameters(),
-            lr=1e-2
+            lr=self.lr
         )
 
     @property
