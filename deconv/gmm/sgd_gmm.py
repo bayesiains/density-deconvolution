@@ -13,7 +13,7 @@ mvn = dist.multivariate_normal.MultivariateNormal
 class SGDGMMModule(nn.Module):
 
     def __init__(self, components, dimensions, device=None):
-        super(SGDGMMModule, self).__init__()
+        super().__init__()
 
         self.k = components
         self.d = dimensions
@@ -43,7 +43,9 @@ class SGDGMMModule(nn.Module):
     def covars(self):
         return torch.matmul(self.L, torch.transpose(self.L, -2, -1))
 
-    def forward(self, x):
+    def forward(self, data):
+
+        x = data[0]
 
         weights = self.soft_max(self.soft_weights)
 
@@ -90,7 +92,11 @@ class BaseSGDGMM(ABC):
 
     def fit(self, data, verbose=True):
 
-        loader = data_utils.DataLoader(data, batch_size=self.batch_size)
+        loader = data_utils.DataLoader(
+            data,
+            batch_size=self.batch_size,
+            num_workers=4
+        )
 
         self.init_params(data)
 
@@ -98,10 +104,13 @@ class BaseSGDGMM(ABC):
 
         for i in range(self.epochs):
             running_loss = torch.zeros(1)
-            for j, x in enumerate(loader):
+            for j, d in enumerate(loader):
+
+                d = [a.to(self.device) for a in d]
+
                 self.optimiser.zero_grad()
 
-                loss = self.module(x)
+                loss = self.module(d)
                 loss.backward()
                 self.optimiser.step()
 
@@ -125,5 +134,6 @@ class SGDGMM(BaseSGDGMM):
         )
 
     def init_params(self, data):
-        _, means = k_means(data, self.k, device=self.device)
+        X = data[0]
+        _, means = k_means(X.to(self.device), self.k, device=self.device)
         self.module.means.data = means

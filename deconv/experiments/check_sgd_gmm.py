@@ -26,7 +26,7 @@ def check_sgd_gmm(D, K, N, plot=False, device=None):
             size=N
         )
 
-    X_data = torch.Tensor(X.reshape(-1, D).astype(np.float32)).to(device)
+    X_data = [torch.Tensor(X.reshape(-1, D).astype(np.float32))]
 
     gmm = SGDGMM(K, D, device=device)
     gmm.fit(X_data)

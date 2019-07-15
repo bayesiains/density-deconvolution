@@ -52,5 +52,5 @@ class SGDDeconvGMM(BaseSGDGMM):
 
     def init_params(self, data):
         X = data.X
-        _, means = k_means(X, self.k, device=self.device)
+        _, means = k_means(X.to(self.device), self.k, device=self.device)
         self.module.means.data = means

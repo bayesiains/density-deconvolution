@@ -17,8 +17,13 @@ def check_sgd_deconv_gmm(D, K, N, plot=False, device=None):
     q = (2 * np.random.randn(K, D, D))
     covars = np.matmul(q.swapaxes(1, 2), q)
 
-    qn = (0.5 * np.random.randn(N, K, D, D))
-    noise_covars = np.matmul(qn.swapaxes(2, 3), qn)
+    # qn = (0.5 * np.random.randn(N, K, D, D))
+    # noise_covars = np.matmul(qn.swapaxes(2, 3), qn)
+
+    nc = np.eye(D)
+    nc[0, 0] = 5
+
+    noise_covars = np.array(K * N * [nc])
 
     X = np.empty((N, K, D))
 
@@ -31,17 +36,22 @@ def check_sgd_deconv_gmm(D, K, N, plot=False, device=None):
         for j in range(N):
             X[j, i, :] += np.random.multivariate_normal(
                 mean=np.zeros(D),
-                cov=noise_covars[j, i, :, :]
+                cov=nc
             )
 
     data = SGDDeconvDataset(
-        torch.Tensor(X.reshape(-1, D).astype(np.float32)).to(device),
+        torch.Tensor(X.reshape(-1, D).astype(np.float32)),
         torch.Tensor(
             noise_covars.reshape(-1, D, D).astype(np.float32)
-        ).to(device)
+        )
     )
 
-    gmm = SGDDeconvGMM(K, D, device=device)
+    gmm = SGDDeconvGMM(
+        K,
+        D,
+        device=device,
+        batch_size=1000
+    )
     gmm.fit(data)
 
     if plot:
