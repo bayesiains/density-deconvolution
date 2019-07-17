@@ -50,7 +50,7 @@ def check_sgd_deconv_gmm(D, K, N, plot=False, device=None):
         K,
         D,
         device=device,
-        batch_size=100
+        batch_size=100,
     )
     gmm.fit(data)
 
@@ -95,5 +95,5 @@ if __name__ == '__main__':
     sns.set()
     D = 2
     K = 3
-    N = 200
+    N = 500
     check_sgd_deconv_gmm(D, K, N, plot=True)
