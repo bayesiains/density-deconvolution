@@ -95,7 +95,8 @@ class BaseSGDGMM(ABC):
         loader = data_utils.DataLoader(
             data,
             batch_size=self.batch_size,
-            num_workers=4
+            num_workers=4,
+            shuffle=True
         )
 
         self.init_params(data)
