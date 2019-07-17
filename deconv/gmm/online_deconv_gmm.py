@@ -7,12 +7,14 @@ from .deconv_gmm import DeconvGMM
 class OnlineDeconvGMM(DeconvGMM):
 
     def __init__(self, components, dimensions, max_iters=1000,
-                 chol_factor=1e-6, tol=1e-9, batch_size=64, restarts=5,
-                 device=None):
+                 chol_factor=1e-6, tol=1e-6, step_size=0.1, batch_size=100,
+                 restarts=5, max_no_improvement=20, device=None):
         super().__init__(components, dimensions, max_iters=max_iters,
                          chol_factor=chol_factor, tol=tol, restarts=restarts,
                          device=device)
         self.batch_size = batch_size
+        self.step_size = step_size
+        self.max_no_improvement = max_no_improvement
 
     def _init_expectations(self, data):
         return super()._init_expectations(data)
@@ -21,12 +23,13 @@ class OnlineDeconvGMM(DeconvGMM):
         loader = data_utils.DataLoader(
             data,
             batch_size=self.batch_size,
-            num_workers=4
+            num_workers=4,
+            shuffle=True
         )
 
         n = len(loader)
 
-        n_inf = torch.tensor(float('-inf'), device=self.devic)
+        n_inf = torch.tensor(float('-inf'), device=self.device)
 
         best_log_prob = torch.tensor(float('-inf'), device=self.device)
 
@@ -40,9 +43,11 @@ class OnlineDeconvGMM(DeconvGMM):
             self.covars = torch.zeros(
                 self.k, self.d, self.d, device=self.device
             )
-            self._m_step(expectations, n, 1)
+            self._m_step(expectations, n, self.step_size)
 
             prev_log_prob = torch.tensor(float('-inf'), device=self.device)
+            max_log_prob = torch.tensor(float('-inf'), device=self.device)
+            no_improvements = 0
 
             for i in range(self.max_iters):
                 running_log_prob = torch.zeros(1, device=self.device)
@@ -52,10 +57,19 @@ class OnlineDeconvGMM(DeconvGMM):
                     if log_prob == n_inf:
                         break
                     running_log_prob += log_prob
-                    self._m_step(expectations, n, 0.1)
+                    self._m_step(expectations, n, self.step_size)
 
                 if torch.abs(running_log_prob - prev_log_prob) < self.tol:
                     break
+                if running_log_prob > max_log_prob:
+                    no_improvements = 0
+                    max_log_prob = running_log_prob
+                else:
+                    no_improvements += 1
+
+                if no_improvements > self.max_no_improvement:
+                    break
+
                 prev_log_prob = running_log_prob
 
             if running_log_prob > best_log_prob and running_log_prob != 0.0:
