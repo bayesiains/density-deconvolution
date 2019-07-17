@@ -17,13 +17,13 @@ def check_sgd_deconv_gmm(D, K, N, plot=False, device=None):
     q = (2 * np.random.randn(K, D, D))
     covars = np.matmul(q.swapaxes(1, 2), q)
 
-    # qn = (0.5 * np.random.randn(N, K, D, D))
-    # noise_covars = np.matmul(qn.swapaxes(2, 3), qn)
+    qn = (0.5 * np.random.randn(N, K, D, D))
+    noise_covars = np.matmul(qn.swapaxes(2, 3), qn)
 
-    nc = np.eye(D)
-    nc[0, 0] = 5
+    # nc = np.eye(D)
+    # nc[0, 0] = 5
 
-    noise_covars = np.array(K * N * [nc])
+    # noise_covars = np.array(K * N * [nc])
 
     X = np.empty((N, K, D))
 
@@ -36,7 +36,7 @@ def check_sgd_deconv_gmm(D, K, N, plot=False, device=None):
         for j in range(N):
             X[j, i, :] += np.random.multivariate_normal(
                 mean=np.zeros(D),
-                cov=nc
+                cov=noise_covars[j, i, :, :]
             )
 
     data = SGDDeconvDataset(
@@ -50,7 +50,7 @@ def check_sgd_deconv_gmm(D, K, N, plot=False, device=None):
         K,
         D,
         device=device,
-        batch_size=1000
+        batch_size=100
     )
     gmm.fit(data)
 

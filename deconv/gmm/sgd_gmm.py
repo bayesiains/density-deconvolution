@@ -90,7 +90,7 @@ class BaseSGDGMM(ABC):
     def covars(self):
         return self.module.covars.detach()
 
-    def fit(self, data, verbose=True):
+    def fit(self, data, verbose=False):
 
         loader = data_utils.DataLoader(
             data,

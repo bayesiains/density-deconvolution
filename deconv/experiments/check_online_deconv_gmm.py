@@ -9,7 +9,7 @@ from deconv.gmm.online_deconv_gmm import OnlineDeconvGMM
 from deconv.gmm.sgd_deconv_gmm import SGDDeconvDataset
 
 
-def check_sgd_deconv_gmm(D, K, N, plot=False, device=None):
+def check_online_deconv_gmm(D, K, N, plot=False, device=None):
 
     if not device:
         device = torch.device('cpu')
@@ -96,4 +96,4 @@ if __name__ == '__main__':
     D = 2
     K = 3
     N = 500
-    check_sgd_deconv_gmm(D, K, N, plot=True)
+    check_online_deconv_gmm(D, K, N, plot=True)

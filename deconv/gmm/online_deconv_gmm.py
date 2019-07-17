@@ -7,10 +7,12 @@ from .deconv_gmm import DeconvGMM
 class OnlineDeconvGMM(DeconvGMM):
 
     def __init__(self, components, dimensions, max_iters=1000,
-                 chol_factor=1e-6, tol=1e-9, restarts=5, device=None):
+                 chol_factor=1e-6, tol=1e-9, batch_size=64, restarts=5,
+                 device=None):
         super().__init__(components, dimensions, max_iters=max_iters,
                          chol_factor=chol_factor, tol=tol, restarts=restarts,
                          device=device)
+        self.batch_size = batch_size
 
     def _init_expectations(self, data):
         return super()._init_expectations(data)
@@ -18,31 +20,34 @@ class OnlineDeconvGMM(DeconvGMM):
     def fit(self, data):
         loader = data_utils.DataLoader(
             data,
-            batch_size=100,
+            batch_size=self.batch_size,
             num_workers=4
         )
 
         n = len(loader)
 
-        d = next(iter(loader))
-
-        n_inf = torch.tensor(float('-inf'), device=self.device)
+        n_inf = torch.tensor(float('-inf'), device=self.devic)
 
         best_log_prob = torch.tensor(float('-inf'), device=self.device)
 
         for j in range(self.restarts):
 
+            d = [a.to(self.device) for a in next(iter(loader))]
+
             expectations = self._init_expectations(d)
-            self.weights = torch.zeros(self.k, 1)
-            self.means = torch.zeros(self.k, self.d)
-            self.covars = torch.zeros(self.k, self.d, self.d)
-            self._m_step(expectations, n, 0.1)
+            self.weights = torch.zeros(self.k, 1, device=self.device)
+            self.means = torch.zeros(self.k, self.d, device=self.device)
+            self.covars = torch.zeros(
+                self.k, self.d, self.d, device=self.device
+            )
+            self._m_step(expectations, n, 1)
 
             prev_log_prob = torch.tensor(float('-inf'), device=self.device)
 
             for i in range(self.max_iters):
-                running_log_prob = torch.zeros(1)
+                running_log_prob = torch.zeros(1, device=self.device)
                 for _, d in enumerate(loader):
+                    d = [a.to(self.device) for a in d]
                     log_prob, expectations = self._e_step(d)
                     if log_prob == n_inf:
                         break
@@ -53,7 +58,7 @@ class OnlineDeconvGMM(DeconvGMM):
                     break
                 prev_log_prob = running_log_prob
 
-            if running_log_prob > best_log_prob and running_log_prob != 0:
+            if running_log_prob > best_log_prob and running_log_prob != 0.0:
                 best_params = (
                     self.weights.clone().detach(),
                     self.means.clone().detach(),
