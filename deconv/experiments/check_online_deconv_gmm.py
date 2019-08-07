@@ -51,7 +51,7 @@ def check_online_deconv_gmm(D, K, N, plot=False, device=None):
         K,
         D,
         device=device,
-        batch_size=100
+        batch_size=1000
     )
     gmm.fit(data)
 
