@@ -19,6 +19,17 @@ class OnlineDeconvGMM(DeconvGMM):
     def _init_expectations(self, data):
         return super()._init_expectations(data)
 
+    def _init_sum_stats(self, expectations, n):
+        log_resps, cond_means, cond_covars = expectations
+
+        self.sum_resps = torch.zeros(self.k, 1)
+
+        self.sum_cond_means = torch.zeros(self.k, self.d)
+
+        self.sum_dev_ps = torch.zeros(
+            self.k, self.d, self.d, device=self.device
+        )
+
     def fit(self, data):
         loader = data_utils.DataLoader(
             data,
@@ -27,7 +38,7 @@ class OnlineDeconvGMM(DeconvGMM):
             shuffle=True
         )
 
-        n = len(loader)
+        n = len(data)
 
         n_inf = torch.tensor(float('-inf'), device=self.device)
 
@@ -38,11 +49,8 @@ class OnlineDeconvGMM(DeconvGMM):
             d = [a.to(self.device) for a in next(iter(loader))]
 
             expectations = self._init_expectations(d)
-            self.weights = torch.zeros(self.k, 1, device=self.device)
-            self.means = torch.zeros(self.k, self.d, device=self.device)
-            self.covars = torch.zeros(
-                self.k, self.d, self.d, device=self.device
-            )
+            self._init_sum_stats(expectations, n)
+
             self._m_step(expectations, n, self.step_size)
 
             prev_log_prob = torch.tensor(float('-inf'), device=self.device)
@@ -71,6 +79,7 @@ class OnlineDeconvGMM(DeconvGMM):
                     break
 
                 prev_log_prob = running_log_prob
+                print(running_log_prob)
 
             if running_log_prob > best_log_prob and running_log_prob != 0.0:
                 best_params = (
@@ -89,11 +98,14 @@ class OnlineDeconvGMM(DeconvGMM):
     def _m_step(self, expectations, n, gamma):
         log_resps, cond_means, cond_covars = expectations
         resps = torch.exp(log_resps)[:, :, None]    # n, j, 1
-        weights = resps.sum(dim=0)  # j, 1
 
-        self.means = ((1 - gamma) * self.means) + gamma * (
-            (resps * cond_means).sum(dim=0) / weights  # j, d
+        self.sum_resps += gamma * (resps.sum(dim=0) - self.sum_resps)
+        self.weights = self.sum_resps / n
+
+        self.sum_cond_means += gamma * (
+            (resps * cond_means).sum(dim=0) - self.sum_cond_means
         )
+        self.means = (self.sum_cond_means / self.sum_resps)
 
         for j in range(self.k):
             diffs = self.means - cond_means    # n, j, d
@@ -101,13 +113,14 @@ class OnlineDeconvGMM(DeconvGMM):
                 torch.transpose(diffs[:, j, None, :], 1, 2),    # n, d, 1
                 diffs[:, j, None, :]    # n, 1, d
             )
-            self.covars[j, :, :] = ((1 - gamma) * self.covars[j, :, :]) + (
-                gamma * torch.sum(   # d, d
+            self.sum_dev_ps[j, :, :] += gamma * (
+                torch.sum(   # d, d
                     resps[:, j, :, None] * (    # n, 1, 1
                         cond_covars[:, j, :, :] +   # n, d, d
                         outer_p     # n, d, d
                     ),
                     dim=0
-                ) / weights[j, :]
+                ) - self.sum_dev_ps[j, :, :]
             )
-        self.weights = self.weights * (1 - gamma) + gamma * (weights / n)
+
+            self.covars[j, :, :] = self.sum_dev_ps[j, :, :] / self.sum_resps[j, :]
