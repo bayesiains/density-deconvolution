@@ -54,7 +54,7 @@ class GMM(BaseGMM):
                 diff
             ) / weights[:, j]
             self.covars[j, :, :] += torch.diag(
-                self.chol_factor * torch.ones(self.d, device=self.device)
+                self.w * torch.ones(self.d, device=self.device)
             )
 
         self.weights = weights / n

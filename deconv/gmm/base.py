@@ -11,11 +11,11 @@ mvn = dist.multivariate_normal.MultivariateNormal
 class BaseGMM(ABC):
 
     def __init__(self, components, dimensions, max_iters=100,
-                 chol_factor=1e-6, tol=1e-9, restarts=5, device=None):
+                 w=1e-6, tol=1e-9, restarts=5, device=None):
         self.k = components
         self.d = dimensions
         self.max_iters = max_iters
-        self.chol_factor = chol_factor
+        self.w = w
         self.tol = tol
         self.restarts = restarts
 
@@ -68,7 +68,7 @@ class BaseGMM(ABC):
                 best_log_prob = log_prob
 
         if best_log_prob == n_inf:
-            raise ValueError('Could not fit model. Try increasing chol_reg?')
+            raise ValueError('Could not fit model. Try increasing w?')
         self.weights, self.means, self.covars, self.chol_covars = best_params
         print(self.weights.device)
 

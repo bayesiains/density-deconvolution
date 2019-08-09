@@ -8,6 +8,31 @@ mvn = dist.multivariate_normal.MultivariateNormal
 
 class DeconvGMM(BaseGMM):
 
+    def __init__(self, components, dimensions, max_iters=1000, gamma=1,
+                 omega=None, eta=0, m_hat=0, w=1e-6, tol=1e-6, restarts=5,
+                 device=None):
+        super().__init__(components, dimensions, max_iters=max_iters, tol=tol,
+                         restarts=restarts, device=device)
+
+        if len(torch.tensor(gamma).shape) == 0:
+            self.gamma = gamma * torch.ones(self.k, 1, device=self.device)
+        else:
+            self.gamma = gamma
+
+        self.eta = eta
+        if len(torch.tensor(m_hat).shape) == 0:
+            self.m_hat = m_hat * torch.ones(self.d, device=self.device)
+        else:
+            self.m_hat = m_hat
+
+        if omega is None:
+            self.omega = (self.d + 1) / 2
+
+        if len(torch.tensor(w).shape) == 0:
+            self.w = w * torch.eye(self.d, device=self.device)
+        else:
+            self.w = w
+
     def _init_expectations(self, data):
 
         X = data[0]
@@ -77,20 +102,35 @@ class DeconvGMM(BaseGMM):
         resps = torch.exp(log_resps)[:, :, None]    # n, j, 1
         weights = resps.sum(dim=0)  # j, 1
 
-        self.means = (resps * cond_means).sum(dim=0) / weights  # j, d
+        self.means = (
+            (resps * cond_means).sum(dim=0)
+        ) / (weights)  # j, d
 
         for j in range(self.k):
             diffs = self.means - cond_means    # n, j, d
+            reg_diffs = self.means - self.m_hat
             outer_p = torch.matmul(     # n, d, d
                 torch.transpose(diffs[:, j, None, :], 1, 2),    # n, d, 1
                 diffs[:, j, None, :]    # n, 1, d
             )
-            self.covars[j, :, :] = torch.sum(   # d, d
-                resps[:, j, :, None] * (    # n, 1, 1
-                    cond_covars[:, j, :, :] +   # n, d, d
-                    outer_p     # n, d, d
-                ),
-                dim=0
-            ) / weights[j, :]
+            self.covars[j, :, :] = (
+                torch.sum(   # d, d
+                    resps[:, j, :, None] * (    # n, 1, 1
+                        cond_covars[:, j, :, :] +   # n, d, d
+                        outer_p     # n, d, d
+                    ),
+                    dim=0
+                )
+            )
+            self.covars[j, :, :] += self.eta * torch.matmul(
+                reg_diffs[j, :, None],
+                reg_diffs[j, None, :]
+            )
+            self.covars[j, :, :] += 2 * self.w
+            self.covars[j, :, :] /= (
+                weights[j, :] + 1 + 2 * (self.omega - (self.d + 1) / 2)
+            )
 
-        self.weights = weights / n
+        self.weights = (weights + self.gamma - 1) / (
+            n + self.gamma.sum() - self.k
+        )
