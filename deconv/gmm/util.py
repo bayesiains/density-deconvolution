@@ -31,3 +31,23 @@ def k_means(X, k, max_iters=50, tol=1e-9, device=None):
             prev_distance = total_distance
 
         return resp.float(), centroids
+
+
+def minibatch_k_means(loader, k, max_iters=50, tol=1e-9, device=None):
+
+    centroids = next(iter(loader))[0][:k].to(device)
+    counts = torch.zeros(k)
+
+    for i in range(max_iters):
+        for X, _ in loader:
+            distances = (X[:, None, :] - centroids[None, :, :]).norm(dim=2)
+            labels = distances.min(dim=1)[1]
+
+            for i, x in enumerate(X):
+                label = labels[i]
+                counts[label] += 1
+                eta = 1 / counts[label]
+                centroids[label] += eta * (x - centroids[label])
+
+    return counts, centroids
+
