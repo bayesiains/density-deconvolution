@@ -2,11 +2,12 @@ import torch
 import torch.utils.data as data_utils
 
 from .deconv_gmm import DeconvGMM
+from .util import minibatch_k_means
 
 
 class OnlineDeconvGMM(DeconvGMM):
 
-    def __init__(self, components, dimensions, max_iters=1000, gamma=1,
+    def __init__(self, components, dimensions, max_iters=10000, gamma=1,
                  omega=None, eta=0, w=1e-6, tol=1e-6, step_size=0.1,
                  batch_size=100, restarts=5, max_no_improvement=20,
                  device=None):
@@ -17,11 +18,15 @@ class OnlineDeconvGMM(DeconvGMM):
         self.step_size = step_size
         self.max_no_improvement = max_no_improvement
 
-    def _init_expectations(self, data):
-        return super()._init_expectations(data)
+    def _init_sum_stats(self, loader, n):
 
-    def _init_sum_stats(self, expectations, n):
-        log_resps, cond_means, cond_covars = expectations
+        counts, centroids = minibatch_k_means(loader, self.k)
+
+        self.weights = counts[:, None] / counts.sum()
+        self.means = centroids
+        self.covars = torch.eye(
+            self.d, device=self.device
+        ).repeat(self.k, 1, 1)
 
         self.sum_resps = torch.zeros(self.k, 1)
 
@@ -36,7 +41,8 @@ class OnlineDeconvGMM(DeconvGMM):
             data,
             batch_size=self.batch_size,
             num_workers=4,
-            shuffle=True
+            shuffle=True,
+            drop_last=True
         )
 
         n = len(data)
@@ -47,16 +53,15 @@ class OnlineDeconvGMM(DeconvGMM):
 
         for j in range(self.restarts):
 
-            d = [a.to(self.device) for a in next(iter(loader))]
-
-            expectations = self._init_expectations(d)
-            self._init_sum_stats(expectations, n)
-
-            self._m_step(expectations, n, self.step_size)
+            self._init_sum_stats(loader, n)
 
             prev_log_prob = torch.tensor(float('-inf'), device=self.device)
             max_log_prob = torch.tensor(float('-inf'), device=self.device)
             no_improvements = 0
+
+            d = [a.to(self.device) for a in next(iter(loader))]
+            _, expectations = self._e_step(d)
+            self._m_step(expectations, n, 1)
 
             for i in range(self.max_iters):
                 running_log_prob = torch.zeros(1, device=self.device)
@@ -69,6 +74,7 @@ class OnlineDeconvGMM(DeconvGMM):
                     self._m_step(expectations, n, self.step_size)
 
                 if torch.abs(running_log_prob - prev_log_prob) < self.tol:
+                    print('Converged within tolerance')
                     break
                 if running_log_prob > max_log_prob:
                     no_improvements = 0
@@ -77,6 +83,7 @@ class OnlineDeconvGMM(DeconvGMM):
                     no_improvements += 1
 
                 if no_improvements > self.max_no_improvement:
+                    print('Reached max steps with no improvement.')
                     break
 
                 prev_log_prob = running_log_prob
@@ -102,12 +109,13 @@ class OnlineDeconvGMM(DeconvGMM):
 
         self.sum_resps += step_size * (resps.sum(dim=0) - self.sum_resps)
         self.weights = (self.sum_resps + self.gamma - 1) / (
-            n + self.gamma.sum() - self.k
+            self.batch_size + self.gamma.sum() - self.k
         )
 
         self.sum_cond_means += step_size * (
             (resps * cond_means).sum(dim=0) - self.sum_cond_means
         )
+
         self.means = (self.sum_cond_means + self.eta * self.m_hat) / (
             self.sum_resps + self.eta
         )
