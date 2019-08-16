@@ -5,7 +5,7 @@ import torch.distributions as dist
 import torch.nn as nn
 import torch.utils.data as data_utils
 
-from .util import k_means
+from .util import minibatch_k_means
 
 mvn = dist.multivariate_normal.MultivariateNormal
 
@@ -99,7 +99,7 @@ class BaseSGDGMM(ABC):
             shuffle=True
         )
 
-        self.init_params(data)
+        self.init_params(loader)
 
         prev_loss = torch.tensor(float('inf'))
 
@@ -134,7 +134,6 @@ class SGDGMM(BaseSGDGMM):
             batch_size=batch_size, tol=tol, device=device
         )
 
-    def init_params(self, data):
-        X = data[0]
-        _, means = k_means(X.to(self.device), self.k, device=self.device)
-        self.module.means.data = means
+    def init_params(self, loader):
+        _, centroids = minibatch_k_means(loader, self.k, device=self.device)
+        self.module.means.data = centroids
