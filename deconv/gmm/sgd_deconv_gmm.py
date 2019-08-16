@@ -3,7 +3,7 @@ import torch.distributions as dist
 import torch.utils.data as data_utils
 
 from .sgd_gmm import SGDGMMModule, BaseSGDGMM
-from .util import k_means
+from .util import minibatch_k_means
 
 mvn = dist.multivariate_normal.MultivariateNormal
 
@@ -50,7 +50,6 @@ class SGDDeconvGMM(BaseSGDGMM):
             batch_size=batch_size, tol=tol, device=device
         )
 
-    def init_params(self, data):
-        X = data.X
-        _, means = k_means(X.to(self.device), self.k, device=self.device)
+    def init_params(self, loader):
+        _, means = minibatch_k_means(loader, self.k, device=self.device)
         self.module.means.data = means
