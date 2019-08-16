@@ -36,10 +36,12 @@ def k_means(X, k, max_iters=50, tol=1e-9, device=None):
 def minibatch_k_means(loader, k, max_iters=50, tol=1e-9, device=None):
 
     centroids = next(iter(loader))[0][:k].to(device)
-    counts = torch.zeros(k)
+    counts = torch.zeros(k, device=device)
+
 
     for i in range(max_iters):
         for X, _ in loader:
+            X = X.to(device)
             distances = (X[:, None, :] - centroids[None, :, :]).norm(dim=2)
             labels = distances.min(dim=1)[1]
 
