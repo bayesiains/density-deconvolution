@@ -59,10 +59,6 @@ class OnlineDeconvGMM(DeconvGMM):
             max_log_prob = torch.tensor(float('-inf'), device=self.device)
             no_improvements = 0
 
-            d = [a.to(self.device) for a in next(iter(loader))]
-            _, expectations = self._e_step(d)
-            self._m_step(expectations, n, 1)
-
             for i in range(self.max_iters):
                 running_log_prob = torch.zeros(1, device=self.device)
                 for _, d in enumerate(loader):
@@ -120,8 +116,9 @@ class OnlineDeconvGMM(DeconvGMM):
             self.sum_resps + self.eta
         )
 
+        diffs = self.means - cond_means    # n, j, d
+
         for j in range(self.k):
-            diffs = self.means - cond_means    # n, j, d
             outer_p = torch.matmul(     # n, d, d
                 torch.transpose(diffs[:, j, None, :], 1, 2),    # n, d, 1
                 diffs[:, j, None, :]    # n, 1, d
@@ -136,13 +133,10 @@ class OnlineDeconvGMM(DeconvGMM):
                 ) - self.sum_dev_ps[j, :, :]
             )
 
-            reg_diffs = self.means - self.m_hat
-
-            self.covars[j, :, :] = (
-                self.sum_dev_ps[j, :, :] + self.eta * torch.matmul(
-                    reg_diffs[j, :, None],
-                    reg_diffs[j, None, :]
-                ) + 2 * self.w
+            self.covars[j, :, :] = ((
+                self.sum_dev_ps[j, :, :]
             ) / (
-                self.sum_resps[j, :] + 1 + 2 * (self.omega - (self.d + 1) / 2)
-            )
+                self.sum_resps[j, :]
+            ))
+
+            self.covars[j, :, :] += self.w
