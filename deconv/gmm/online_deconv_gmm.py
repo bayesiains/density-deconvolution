@@ -36,7 +36,7 @@ class OnlineDeconvGMM(DeconvGMM):
             self.k, self.d, self.d, device=self.device
         )
 
-    def fit(self, data):
+    def fit(self, data, verbose=False):
         loader = data_utils.DataLoader(
             data,
             batch_size=self.batch_size,
@@ -72,6 +72,15 @@ class OnlineDeconvGMM(DeconvGMM):
                         break
                     running_log_prob += log_prob
                     self._m_step(expectations, n, self.step_size)
+
+                if verbose and i % 10 == 0:
+                    print('Epoch {}, Running Log Prob: {}'.format(
+                        i, running_log_prob)
+                    )
+
+                if running_log_prob == 0.0:
+                    print('Log prob 0, crashed.')
+                    break
 
                 if torch.abs(running_log_prob - prev_log_prob) < self.tol:
                     print('Converged within tolerance')
