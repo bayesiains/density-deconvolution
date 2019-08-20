@@ -96,7 +96,8 @@ class BaseSGDGMM(ABC):
             data,
             batch_size=self.batch_size,
             num_workers=4,
-            shuffle=True
+            shuffle=True,
+            pin_memory=True
         )
 
         self.init_params(loader)
