@@ -59,6 +59,10 @@ class OnlineDeconvGMM(DeconvGMM):
             max_log_prob = torch.tensor(float('-inf'), device=self.device)
             no_improvements = 0
 
+            d = [a.to(self.device) for a in next(iter(loader))]
+            _, expectations = self._e_step(d)
+            self._m_step(expectations, n, 1)
+
             for i in range(self.max_iters):
                 running_log_prob = torch.zeros(1, device=self.device)
                 for _, d in enumerate(loader):
@@ -83,7 +87,6 @@ class OnlineDeconvGMM(DeconvGMM):
                     break
 
                 prev_log_prob = running_log_prob
-                print(running_log_prob)
 
             if running_log_prob > best_log_prob and running_log_prob != 0.0:
                 best_params = (
@@ -117,26 +120,13 @@ class OnlineDeconvGMM(DeconvGMM):
         )
 
         diffs = self.means - cond_means    # n, j, d
+        outer_p = diffs[:, :, :, None] * diffs[:, :, None, :]
+        sum_dev_ps = torch.sum(
+            resps[:, :, :, None] * (cond_covars + outer_p),
+            dim=0
+        )
+        self.sum_dev_ps += step_size * (sum_dev_ps - self.sum_dev_ps)
 
-        for j in range(self.k):
-            outer_p = torch.matmul(     # n, d, d
-                torch.transpose(diffs[:, j, None, :], 1, 2),    # n, d, 1
-                diffs[:, j, None, :]    # n, 1, d
-            )
-            self.sum_dev_ps[j, :, :] += step_size * (
-                torch.sum(   # d, d
-                    resps[:, j, :, None] * (    # n, 1, 1
-                        cond_covars[:, j, :, :] +   # n, d, d
-                        outer_p     # n, d, d
-                    ),
-                    dim=0
-                ) - self.sum_dev_ps[j, :, :]
-            )
+        self.covars = self.sum_dev_ps / self.sum_resps[:, :, None]
 
-            self.covars[j, :, :] = ((
-                self.sum_dev_ps[j, :, :]
-            ) / (
-                self.sum_resps[j, :]
-            ))
-
-            self.covars[j, :, :] += self.w
+        self.covars += self.w
