@@ -20,7 +20,9 @@ class OnlineDeconvGMM(DeconvGMM):
 
     def _init_sum_stats(self, loader, n):
 
-        counts, centroids = minibatch_k_means(loader, self.k)
+        counts, centroids = minibatch_k_means(
+            loader, self.k, device=self.device
+        )
 
         self.weights = counts[:, None] / counts.sum()
         self.means = centroids
@@ -28,9 +30,9 @@ class OnlineDeconvGMM(DeconvGMM):
             self.d, device=self.device
         ).repeat(self.k, 1, 1)
 
-        self.sum_resps = torch.zeros(self.k, 1)
+        self.sum_resps = torch.zeros(self.k, 1, device=self.device)
 
-        self.sum_cond_means = torch.zeros(self.k, self.d)
+        self.sum_cond_means = torch.zeros(self.k, self.d, device=self.device)
 
         self.sum_dev_ps = torch.zeros(
             self.k, self.d, self.d, device=self.device
@@ -58,10 +60,6 @@ class OnlineDeconvGMM(DeconvGMM):
             prev_log_prob = torch.tensor(float('-inf'), device=self.device)
             max_log_prob = torch.tensor(float('-inf'), device=self.device)
             no_improvements = 0
-
-            d = [a.to(self.device) for a in next(iter(loader))]
-            _, expectations = self._e_step(d)
-            self._m_step(expectations, n, 1)
 
             for i in range(self.max_iters):
                 running_log_prob = torch.zeros(1, device=self.device)
@@ -115,27 +113,28 @@ class OnlineDeconvGMM(DeconvGMM):
         log_resps, cond_means, cond_covars = expectations
         resps = torch.exp(log_resps)[:, :, None]    # n, j, 1
 
-        self.sum_resps += step_size * (resps.sum(dim=0) - self.sum_resps)
-        self.weights = (self.sum_resps + self.gamma - 1) / (
-            self.batch_size + self.gamma.sum() - self.k
-        )
+        sum_resps = resps.sum(dim=0)
 
-        self.sum_cond_means += step_size * (
-            (resps * cond_means).sum(dim=0) - self.sum_cond_means
-        )
+        sum_cond_means = (resps * cond_means).sum(dim=0)
 
-        self.means = (self.sum_cond_means + self.eta * self.m_hat) / (
-            self.sum_resps + self.eta
-        )
+        diffs = cond_means - self.means
 
-        diffs = self.means - cond_means    # n, j, d
         outer_p = diffs[:, :, :, None] * diffs[:, :, None, :]
+        outer_p += cond_covars
+
         sum_dev_ps = torch.sum(
-            resps[:, :, :, None] * (cond_covars + outer_p),
+            resps[:, :, :, None] * outer_p,
             dim=0
         )
-        self.sum_dev_ps += step_size * (sum_dev_ps - self.sum_dev_ps)
 
+        self.sum_resps = (1 - step_size) * self.sum_resps + step_size * sum_resps
+        self.sum_cond_means = (1 - step_size) * self.sum_cond_means + step_size * sum_cond_means
+
+        self.means = self.sum_cond_means / self.sum_resps
+
+        self.sum_dev_ps = (1 - step_size) * self.sum_dev_ps + step_size * sum_dev_ps
         self.covars = self.sum_dev_ps / self.sum_resps[:, :, None]
 
-        self.covars += self.w
+
+        self.weights = self.sum_resps / self.batch_size
+
