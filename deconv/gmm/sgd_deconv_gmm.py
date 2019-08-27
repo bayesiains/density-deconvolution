@@ -1,5 +1,6 @@
 import torch
 import torch.distributions as dist
+import torch.nn as nn
 import torch.utils.data as data_utils
 
 from .sgd_gmm import SGDGMMModule, BaseSGDGMM
@@ -51,5 +52,8 @@ class SGDDeconvGMM(BaseSGDGMM):
         )
 
     def init_params(self, loader):
-        _, means = minibatch_k_means(loader, self.k, device=self.device)
-        self.module.means.data = means
+        counts, centroids = minibatch_k_means(loader, self.k, device=self.device)
+        self.module.soft_weights.data = torch.log(counts / counts.sum())
+        self.module.means.data = centroids
+        self.module.l_diag.data = nn.Parameter(torch.zeros(self.k, self.d), device=self.device)
+        self.module.l_lower.data = torch.zeros(self.k, self.d * (self.d - 1) // 2, device=self.device)
