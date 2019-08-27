@@ -8,69 +8,29 @@ from deconv.gmm.plotting import plot_covariance
 from deconv.gmm.online_deconv_gmm import OnlineDeconvGMM
 from deconv.gmm.sgd_deconv_gmm import SGDDeconvDataset
 
+from data import generate_data
 
-def check_online_deconv_gmm(D, K, N, plot=False, device=None):
+
+def check_online_deconv_gmm(D, K, N, plot=False, device=None, verbose=False):
 
     if not device:
         device = torch.device('cpu')
 
-    means = (np.random.rand(K, D) * 200) - 100
-    q = (2 * np.random.randn(K, D, D))
-    covars = np.matmul(q.swapaxes(1, 2), q)
+    data, params = generate_data(D, K, N)
+    X_train, nc_train, X_test, nc_test = data
+    means, covars = params
 
-    qn = (0.5 * np.random.randn(N, K, D, D))
-    noise_covars = np.matmul(qn.swapaxes(2, 3), qn)
-
-    # nc = 0.1 * np.eye(D)
-    # nc[0, 0] = 5
-
-    # noise_covars = np.array(K * N * [nc]).reshape(N, K, D, D)
-
-    # means = np.array([
-    #     [-20, 0],
-    #     [20, 0]
-    # ])
-
-    # covars = np.array([
-    #     [
-    #         [5, 0],
-    #         [0, 1]
-    #     ],
-    #     [
-    #         [1, 0],
-    #         [0, 5]
-    #     ]
-    # ])
-
-    # noise_covars = np.array(N * [[
-    #     [
-    #         [1, 0],
-    #         [0, 5]
-    #     ],
-    #     [
-    #         [5, 0],
-    #         [0, 1]
-    #     ]
-    # ]])
-
-    X = np.empty((N, K, D))
-
-    for i in range(K):
-        X[:, i, :] = np.random.multivariate_normal(
-            mean=means[i, :],
-            cov=covars[i, :, :],
-            size=N
-        )
-        for j in range(N):
-            X[j, i, :] += np.random.multivariate_normal(
-                mean=np.zeros(D),
-                cov=noise_covars[j, i, :, :]
-            )
-
-    data = SGDDeconvDataset(
-        torch.Tensor(X.reshape(-1, D).astype(np.float32)),
+    train_data = SGDDeconvDataset(
+        torch.Tensor(X_train.reshape(-1, D).astype(np.float32)),
         torch.Tensor(
-            noise_covars.reshape(-1, D, D).astype(np.float32)
+            nc_train.reshape(-1, D, D).astype(np.float32)
+        )
+    )
+
+    test_data = SGDDeconvDataset(
+        torch.Tensor(X_test.reshape(-1, D).astype(np.float32)),
+        torch.Tensor(
+            nc_test.reshape(-1, D, D).astype(np.float32)
         )
     )
 
@@ -78,18 +38,26 @@ def check_online_deconv_gmm(D, K, N, plot=False, device=None):
         K,
         D,
         device=device,
-        batch_size=1000,
-        step_size=0.01,
+        batch_size=250,
+        step_size=0.1,
+        restarts=5,
+        w=1e-3
     )
-    gmm.fit(data)
+    gmm.fit(train_data, verbose=verbose)
+
+    train_score = gmm.score_batch(train_data)
+    test_score = gmm.score_batch(test_data)
+
+    print('Training score: {}'.format(train_score))
+    print('Test score: {}'.format(test_score))
 
     if plot:
         fig, ax = plt.subplots()
 
         for i in range(K):
             sc = ax.scatter(
-                X[:, i, 0],
-                X[:, i, 1],
+                X_train[:, i, 0],
+                X_train[:, i, 1],
                 alpha=0.2,
                 marker='x',
                 label='Cluster {}'.format(i)
@@ -123,6 +91,6 @@ def check_online_deconv_gmm(D, K, N, plot=False, device=None):
 if __name__ == '__main__':
     sns.set()
     D = 2
-    K = 128
-    N = 100
-    check_online_deconv_gmm(D, K, N, plot=True)
+    K = 3
+    N = 500
+    check_online_deconv_gmm(D, K, N, plot=True, verbose=True)
