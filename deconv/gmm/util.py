@@ -33,13 +33,14 @@ def k_means(X, k, max_iters=50, tol=1e-9, device=None):
         return resp.float(), centroids
 
 
-def minibatch_k_means(loader, k, max_iters=50, tol=1e-9, device=None):
+def minibatch_k_means(loader, k, max_iters=50, tol=1e-3, device=None):
 
     centroids = next(iter(loader))[0][:k].to(device)
     counts = torch.zeros(k, device=device)
 
+    prev_norm = torch.tensor(0.0, device=device)
 
-    for i in range(max_iters):
+    for j in range(max_iters):
         for X, _ in loader:
             X = X.to(device)
             distances = (X[:, None, :] - centroids[None, :, :]).norm(dim=2)
@@ -50,6 +51,11 @@ def minibatch_k_means(loader, k, max_iters=50, tol=1e-9, device=None):
                 counts[label] += 1
                 eta = 1 / counts[label]
                 centroids[label] += eta * (x - centroids[label])
+        norm = torch.norm(centroids, dim=0).sum()
+
+        if torch.abs(norm - prev_norm) < tol:
+            break
+        prev_norm = norm
 
     return counts, centroids
 
