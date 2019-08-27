@@ -30,13 +30,11 @@ class OnlineDeconvGMM(DeconvGMM):
             self.d, device=self.device
         ).repeat(self.k, 1, 1)
 
-        self.sum_resps = torch.zeros(self.k, 1, device=self.device)
+        self.sum_resps = self.weights * self.batch_size
 
-        self.sum_cond_means = torch.zeros(self.k, self.d, device=self.device)
+        self.sum_cond_means = self.means * self.sum_resps
 
-        self.sum_dev_ps = torch.zeros(
-            self.k, self.d, self.d, device=self.device
-        )
+        self.sum_dev_ps = self.covars * self.sum_resps[:, :, None]
 
     def fit(self, data, verbose=False):
         loader = data_utils.DataLoader(
@@ -138,3 +136,19 @@ class OnlineDeconvGMM(DeconvGMM):
 
         self.weights = self.sum_resps / self.batch_size
 
+
+    def score_batch(self, dataset):
+        log_prob = 0
+
+        loader = data_utils.DataLoader(
+            dataset,
+            batch_size=self.batch_size,
+            num_workers=4
+        )
+
+        for _, d in enumerate(loader):
+            d = [a.to(self.device) for a in d]
+            lp, _ = self._e_step(d)
+            log_prob += lp
+
+        return log_prob

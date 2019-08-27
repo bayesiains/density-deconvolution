@@ -124,6 +124,25 @@ class BaseSGDGMM(ABC):
                 break
             prev_loss = running_loss
 
+    def score(self, data):
+        with torch.no_grad():
+            return self.module(data)
+
+    def score_batch(self, dataset):
+        loader = data_utils.DataLoader(
+            dataset,
+            batch_size=self.batch_size,
+            num_workers=4,
+            pin_memory=True
+        )
+
+        log_prob = 0
+
+        for j, d in enumerate(loader):
+            d = [a.to(self.device) for a in d]
+            log_prob += self.score(d)
+
+        return log_prob
 
 class SGDGMM(BaseSGDGMM):
 

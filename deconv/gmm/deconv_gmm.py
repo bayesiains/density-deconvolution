@@ -134,3 +134,7 @@ class DeconvGMM(BaseGMM):
         self.weights = (weights + self.gamma - 1) / (
             n + self.gamma.sum() - self.k
         )
+
+    def score(self, data):
+        log_prob, _ = self._e_step
+        return log_prob
