@@ -36,27 +36,28 @@ class OnlineDeconvGMM(DeconvGMM):
 
         self.sum_dev_ps = self.covars * self.sum_resps[:, :, None]
 
-    def fit(self, data, verbose=False):
+    def fit(self, data, val_data=None, verbose=False):
         loader = data_utils.DataLoader(
             data,
             batch_size=self.batch_size,
             num_workers=4,
             shuffle=True,
-            drop_last=True
+            drop_last=True,
+            pin_memory=True
         )
 
         n = len(data)
 
         n_inf = torch.tensor(float('-inf'), device=self.device)
 
-        best_log_prob = torch.tensor(float('-inf'), device=self.device)
+        best_ll = torch.tensor(float('-inf'), device=self.device)
 
         for j in range(self.restarts):
 
             self._init_sum_stats(loader, n)
 
-            prev_log_prob = torch.tensor(float('-inf'), device=self.device)
-            max_log_prob = torch.tensor(float('-inf'), device=self.device)
+            prev_ll = torch.tensor(float('-inf'), device=self.device)
+            max_val_ll = torch.tensor(float('-inf'), device=self.device)
             no_improvements = 0
 
             for i in range(self.max_iters):
@@ -69,40 +70,66 @@ class OnlineDeconvGMM(DeconvGMM):
                     running_log_prob += log_prob
                     self._m_step(expectations, n, self.step_size)
 
-                if verbose and i % 10 == 0:
-                    print('Epoch {}, Running Log Prob: {}'.format(
-                        i, running_log_prob)
-                    )
-
                 if running_log_prob == 0.0:
                     print('Log prob 0, crashed.')
+                    train_ll = 0.0
+                    val_ll = 0.0
                     break
 
-                if torch.abs(running_log_prob - prev_log_prob) < self.tol:
-                    print('Converged within tolerance')
+                train_ll = self.score_batch(data)
+
+                if val_data:
+                    val_ll = self.score_batch(val_data)
+
+                if verbose and i % 10 == 0:
+                    if val_data:
+                        print('Epoch {}, Train LL: {}, Val LL: {}'.format(
+                            i,
+                            train_ll.item(),
+                            val_ll.item()
+                        ))
+                    else:
+                        print('Epoch {}, Train LL: {}'.format(
+                            i, train_ll.item())
+                        )
+
+                if torch.abs(train_ll - prev_ll) < self.tol:
+                    print('Train LL converged within tolerance at {}'.format(
+                        train_ll.item()
+                    ))
                     break
-                if running_log_prob > max_log_prob:
-                    no_improvements = 0
-                    max_log_prob = running_log_prob
-                else:
-                    no_improvements += 1
 
-                if no_improvements > self.max_no_improvement:
-                    print('Reached max steps with no improvement.')
-                    break
+                if val_data:
+                    if val_ll > max_val_ll:
+                        no_improvements = 0
+                        max_val_ll = val_ll
+                    else:
+                        no_improvements += 1
 
-                prev_log_prob = running_log_prob
+                    if no_improvements > self.max_no_improvement:
+                        print('No improvement in val LL for {} epochs. Early Stopping at {}'.format(
+                            self.max_no_improvement,
+                            val_ll.item()
+                        ))
+                        break
 
-            if running_log_prob > best_log_prob and running_log_prob != 0.0:
+                prev_ll = train_ll
+
+            if val_data:
+                score = val_ll
+            else:
+                score = train_ll
+
+            if score > best_ll and score != 0.0:
                 best_params = (
                     self.weights.clone().detach(),
                     self.means.clone().detach(),
                     self.covars.clone().detach(),
                     self.chol_covars.clone().detach()
                 )
-                best_log_prob = running_log_prob
+                best_ll = score
 
-        if best_log_prob == n_inf:
+        if best_ll == n_inf:
             raise ValueError('Could not fit model. Try increasing chol_reg?')
 
         self.weights, self.means, self.covars, self.chol_covars = best_params
@@ -143,7 +170,8 @@ class OnlineDeconvGMM(DeconvGMM):
         loader = data_utils.DataLoader(
             dataset,
             batch_size=self.batch_size,
-            num_workers=4
+            num_workers=4,
+            pin_memory=True
         )
 
         for _, d in enumerate(loader):
