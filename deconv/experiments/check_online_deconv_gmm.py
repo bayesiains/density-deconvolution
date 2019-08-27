@@ -39,11 +39,11 @@ def check_online_deconv_gmm(D, K, N, plot=False, device=None, verbose=False):
         D,
         device=device,
         batch_size=250,
-        step_size=0.1,
+        step_size=1e-2,
         restarts=5,
         w=1e-3
     )
-    gmm.fit(train_data, verbose=verbose)
+    gmm.fit(train_data, val_data=test_data, verbose=verbose)
 
     train_score = gmm.score_batch(train_data)
     test_score = gmm.score_batch(test_data)

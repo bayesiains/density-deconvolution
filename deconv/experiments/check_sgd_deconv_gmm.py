@@ -36,10 +36,11 @@ def check_sgd_deconv_gmm(D, K, N, plot=False, verbose=False, device=None):
         K,
         D,
         device=device,
-        batch_size=128,
-        epochs=1000
+        batch_size=250,
+        epochs=1000,
+        lr=1e-1
     )
-    gmm.fit(train_data, verbose=verbose)
+    gmm.fit(train_data, val_data=test_data, verbose=verbose)
     train_score = gmm.score_batch(train_data)
     test_score = gmm.score_batch(test_data)
 
