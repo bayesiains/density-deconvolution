@@ -38,9 +38,9 @@ def check_online_deconv_gmm(D, K, N, plot=False, device=None, verbose=False):
         K,
         D,
         device=device,
-        batch_size=250,
-        step_size=1e-2,
-        restarts=5,
+        batch_size=500,
+        step_size=1e-1,
+        restarts=1,
         w=1e-3
     )
     gmm.fit(train_data, val_data=test_data, verbose=verbose)
@@ -52,6 +52,14 @@ def check_online_deconv_gmm(D, K, N, plot=False, device=None, verbose=False):
     print('Test score: {}'.format(test_score))
 
     if plot:
+        fig, ax = plt.subplots()
+
+        ax.plot(gmm.train_ll_curve, label='Training LL')
+        ax.plot(gmm.val_ll_curve, label='Validation LL')
+        ax.legend()
+
+        plt.show()
+
         fig, ax = plt.subplots()
 
         for i in range(K):

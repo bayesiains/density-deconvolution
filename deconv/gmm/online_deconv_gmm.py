@@ -36,14 +36,14 @@ class OnlineDeconvGMM(DeconvGMM):
 
         self.sum_dev_ps = self.covars * self.sum_resps[:, :, None]
 
-    def fit(self, data, val_data=None, verbose=False):
+    def fit(self, data, val_data=None, verbose=False, interval=1):
         loader = data_utils.DataLoader(
             data,
             batch_size=self.batch_size,
             num_workers=4,
             shuffle=True,
-            drop_last=True,
-            pin_memory=True
+            pin_memory=True,
+            drop_last=True
         )
 
         n = len(data)
@@ -53,6 +53,10 @@ class OnlineDeconvGMM(DeconvGMM):
         best_ll = torch.tensor(float('-inf'), device=self.device)
 
         for j in range(self.restarts):
+
+            train_ll_curve = []
+            if val_data:
+                val_ll_curve = []
 
             self._init_sum_stats(loader, n)
 
@@ -77,11 +81,13 @@ class OnlineDeconvGMM(DeconvGMM):
                     break
 
                 train_ll = self.score_batch(data)
+                train_ll_curve.append(train_ll.item())
 
                 if val_data:
                     val_ll = self.score_batch(val_data)
+                    val_ll_curve.append(val_ll.item())
 
-                if verbose and i % 10 == 0:
+                if verbose and i % interval == 0:
                     if val_data:
                         print('Epoch {}, Train LL: {}, Val LL: {}'.format(
                             i,
@@ -129,10 +135,17 @@ class OnlineDeconvGMM(DeconvGMM):
                 )
                 best_ll = score
 
+                best_train_ll_curve = train_ll_curve
+                if val_data:
+                    best_val_ll_curve = val_ll_curve
+
         if best_ll == n_inf:
             raise ValueError('Could not fit model. Try increasing chol_reg?')
 
         self.weights, self.means, self.covars, self.chol_covars = best_params
+        self.train_ll_curve = best_train_ll_curve
+        if val_data:
+            self.val_ll_curve = best_val_ll_curve
 
     def _m_step(self, expectations, n, step_size):
         log_resps, cond_means, cond_covars = expectations

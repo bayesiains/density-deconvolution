@@ -44,16 +44,16 @@ class SGDDeconvDataset(data_utils.Dataset):
 class SGDDeconvGMM(BaseSGDGMM):
 
     def __init__(self, components, dimensions, epochs=10000, lr=1e-3,
-                 batch_size=64, tol=1e-6, device=None):
+                 batch_size=64, tol=1e-6, restarts=5, device=None):
         self.module = SGDDeconvGMMModule(components, dimensions, device)
         super().__init__(
             components, dimensions, epochs=epochs, lr=lr,
-            batch_size=batch_size, tol=tol, device=device
+            batch_size=batch_size, tol=tol, restarts=restarts, device=device
         )
 
     def init_params(self, loader):
         counts, centroids = minibatch_k_means(loader, self.k, device=self.device)
         self.module.soft_weights.data = torch.log(counts / counts.sum())
         self.module.means.data = centroids
-        self.module.l_diag.data = nn.Parameter(torch.zeros(self.k, self.d), device=self.device)
+        self.module.l_diag.data = nn.Parameter(torch.zeros(self.k, self.d, device=self.device))
         self.module.l_lower.data = torch.zeros(self.k, self.d * (self.d - 1) // 2, device=self.device)

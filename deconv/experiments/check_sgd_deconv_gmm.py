@@ -50,6 +50,11 @@ def check_sgd_deconv_gmm(D, K, N, plot=False, verbose=False, device=None):
     if plot:
         fig, ax = plt.subplots()
 
+        ax.plot(gmm.train_loss_curve, label='Training Loss')
+        ax.plot(gmm.val_loss_curve, label='Validation Loss')
+
+        fig, ax = plt.subplots()
+
         for i in range(K):
             sc = ax.scatter(
                 X_train[:, i, 0],
@@ -87,6 +92,6 @@ def check_sgd_deconv_gmm(D, K, N, plot=False, verbose=False, device=None):
 if __name__ == '__main__':
     sns.set()
     D = 2
-    K = 3
-    N = 500
+    K = 128
+    N = 200
     check_sgd_deconv_gmm(D, K, N, verbose=True, plot=True)
