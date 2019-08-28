@@ -64,7 +64,7 @@ class BaseSGDGMM(ABC):
 
     def __init__(self, components, dimensions, epochs=10000, lr=1e-3,
                  batch_size=64, tol=1e-6, restarts=5, max_no_improvement=20,
-                 k_means_factor=100, device=None):
+                 k_means_factor=100, k_means_iters=10, device=None):
         self.k = components
         self.d = dimensions
         self.epochs = epochs
@@ -73,6 +73,7 @@ class BaseSGDGMM(ABC):
         self.lr = lr
         self.restarts = restarts
         self.k_means_factor = k_means_factor
+        self.k_means_iters = k_means_iters
         self.max_no_improvement = max_no_improvement
 
         if not device:
@@ -95,7 +96,7 @@ class BaseSGDGMM(ABC):
     def covars(self):
         return self.module.covars.detach()
 
-    def fit(self, data, val_data=None, verbose=False):
+    def fit(self, data, val_data=None, verbose=False, interval=1):
 
         init_loader = data_utils.DataLoader(
             data,
@@ -147,9 +148,9 @@ class BaseSGDGMM(ABC):
 
                 if val_data:
                     val_loss = self.score_batch(val_data)
-                    val_loss_curve.append(val_loss.item())
+                    val_loss_curve.append(val_loss)
 
-                if verbose and i % 10 == 0:
+                if verbose and i % interval == 0:
                     if val_data:
                         print('Epoch {}, Train Loss: {}, Val Loss :{}'.format(
                             i,
@@ -218,6 +219,12 @@ class BaseSGDGMM(ABC):
 
         return log_prob
 
+    def init_params(self, loader):
+        counts, centroids = minibatch_k_means(loader, self.k, max_iters=self.k_means_iters, device=self.device)
+        self.module.soft_weights.data = torch.log(counts / counts.sum())
+        self.module.means.data = centroids
+        self.module.l_diag.data = nn.Parameter(torch.zeros(self.k, self.d, device=self.device))
+        self.module.l_lower.data = torch.zeros(self.k, self.d * (self.d - 1) // 2, device=self.device)
 
 class SGDGMM(BaseSGDGMM):
 
@@ -228,10 +235,3 @@ class SGDGMM(BaseSGDGMM):
             components, dimensions, epochs=epochs, lr=lr,
             batch_size=batch_size, tol=tol, device=device
         )
-
-    def init_params(self, loader):
-        counts, centroids = minibatch_k_means(loader, self.k, device=self.device)
-        self.module.soft_weights.data = torch.log(counts / counts.sum())
-        self.module.means.data = centroids
-        self.module.l_diag.data = nn.Parameter(torch.zeros(self.k, self.d, device=self.device))
-        self.module.l_lower.data = torch.zeros(self.k, self.d * (self.d - 1) // 2, device=self.device)
