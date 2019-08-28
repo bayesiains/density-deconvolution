@@ -7,42 +7,28 @@ import seaborn as sns
 from deconv.gmm.plotting import plot_covariance
 from deconv.gmm.sgd_deconv_gmm import SGDDeconvGMM, SGDDeconvDataset
 
+from data import generate_data
 
-def check_sgd_deconv_gmm(D, K, N, plot=False, device=None):
+def check_sgd_deconv_gmm(D, K, N, plot=False, verbose=False, device=None):
 
     if not device:
         device = torch.device('cpu')
 
-    means = (np.random.rand(K, D) * 20) - 10
-    q = (2 * np.random.randn(K, D, D))
-    covars = np.matmul(q.swapaxes(1, 2), q)
+    data, params = generate_data(D, K, N)
+    X_train, nc_train, X_test, nc_test = data
+    means, covars = params
 
-    qn = (0.5 * np.random.randn(N, K, D, D))
-    noise_covars = np.matmul(qn.swapaxes(2, 3), qn)
-
-    # nc = np.eye(D)
-    # nc[0, 0] = 5
-
-    # noise_covars = np.array(K * N * [nc])
-
-    X = np.empty((N, K, D))
-
-    for i in range(K):
-        X[:, i, :] = np.random.multivariate_normal(
-            mean=means[i, :],
-            cov=covars[i, :, :],
-            size=N
-        )
-        for j in range(N):
-            X[j, i, :] += np.random.multivariate_normal(
-                mean=np.zeros(D),
-                cov=noise_covars[j, i, :, :]
-            )
-
-    data = SGDDeconvDataset(
-        torch.Tensor(X.reshape(-1, D).astype(np.float32)),
+    train_data = SGDDeconvDataset(
+        torch.Tensor(X_train.reshape(-1, D).astype(np.float32)),
         torch.Tensor(
-            noise_covars.reshape(-1, D, D).astype(np.float32)
+            nc_train.reshape(-1, D, D).astype(np.float32)
+        )
+    )
+
+    test_data = SGDDeconvDataset(
+        torch.Tensor(X_test.reshape(-1, D).astype(np.float32)),
+        torch.Tensor(
+            nc_test.reshape(-1, D, D).astype(np.float32)
         )
     )
 
@@ -50,17 +36,29 @@ def check_sgd_deconv_gmm(D, K, N, plot=False, device=None):
         K,
         D,
         device=device,
-        batch_size=100,
+        batch_size=250,
+        epochs=1000,
+        lr=1e-1
     )
-    gmm.fit(data)
+    gmm.fit(train_data, val_data=test_data, verbose=verbose)
+    train_score = gmm.score_batch(train_data)
+    test_score = gmm.score_batch(test_data)
+
+    print('Training score: {}'.format(train_score))
+    print('Test score: {}'.format(test_score))
 
     if plot:
         fig, ax = plt.subplots()
 
+        ax.plot(gmm.train_loss_curve, label='Training Loss')
+        ax.plot(gmm.val_loss_curve, label='Validation Loss')
+
+        fig, ax = plt.subplots()
+
         for i in range(K):
             sc = ax.scatter(
-                X[:, i, 0],
-                X[:, i, 1],
+                X_train[:, i, 0],
+                X_train[:, i, 1],
                 alpha=0.2,
                 marker='x',
                 label='Cluster {}'.format(i)
@@ -94,6 +92,6 @@ def check_sgd_deconv_gmm(D, K, N, plot=False, device=None):
 if __name__ == '__main__':
     sns.set()
     D = 2
-    K = 3
-    N = 500
-    check_sgd_deconv_gmm(D, K, N, plot=True)
+    K = 128
+    N = 200
+    check_sgd_deconv_gmm(D, K, N, verbose=True, plot=True)

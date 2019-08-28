@@ -1,4 +1,5 @@
 from abc import ABC
+import copy
 
 import torch
 import torch.distributions as dist
@@ -62,13 +63,17 @@ class SGDGMMModule(nn.Module):
 class BaseSGDGMM(ABC):
 
     def __init__(self, components, dimensions, epochs=10000, lr=1e-3,
-                 batch_size=64, tol=1e-6, device=None):
+                 batch_size=64, tol=1e-6, restarts=5, max_no_improvement=20,
+                 k_means_factor=100, device=None):
         self.k = components
         self.d = dimensions
         self.epochs = epochs
         self.batch_size = batch_size
         self.tol = 1e-6
         self.lr = lr
+        self.restarts = restarts
+        self.k_means_factor = k_means_factor
+        self.max_no_improvement = max_no_improvement
 
         if not device:
             self.device = torch.device('cpu')
@@ -90,7 +95,15 @@ class BaseSGDGMM(ABC):
     def covars(self):
         return self.module.covars.detach()
 
-    def fit(self, data, verbose=False):
+    def fit(self, data, val_data=None, verbose=False):
+
+        init_loader = data_utils.DataLoader(
+            data,
+            batch_size=self.batch_size * self.k_means_factor,
+            num_workers=4,
+            shuffle=True,
+            pin_memory=True
+        )
 
         loader = data_utils.DataLoader(
             data,
@@ -100,29 +113,110 @@ class BaseSGDGMM(ABC):
             pin_memory=True
         )
 
-        self.init_params(loader)
+        best_loss = float('inf')
 
-        prev_loss = torch.tensor(float('inf'))
+        for j in range(self.restarts):
 
-        for i in range(self.epochs):
-            running_loss = torch.zeros(1)
-            for j, d in enumerate(loader):
+            self.init_params(init_loader)
 
-                d = [a.to(self.device) for a in d]
+            train_loss_curve = []
 
-                self.optimiser.zero_grad()
+            if val_data:
+                val_loss_curve = []
 
-                loss = self.module(d)
-                loss.backward()
-                self.optimiser.step()
+            prev_loss = float('inf')
+            if val_data:
+                best_val_loss = float('inf')
+                no_improvement_epochs = 0
 
-                running_loss += loss
+            for i in range(self.epochs):
+                train_loss = 0.0
+                for j, d in enumerate(loader):
 
-            if verbose and i % 10 == 0:
-                print('Epoch {}, Loss: {}'.format(i, running_loss.item()))
-            if torch.abs(running_loss - prev_loss) < self.tol:
-                break
-            prev_loss = running_loss
+                    d = [a.to(self.device) for a in d]
+
+                    self.optimiser.zero_grad()
+
+                    loss = self.module(d)
+                    loss.backward()
+                    self.optimiser.step()
+
+                    train_loss += loss.item()
+
+                train_loss_curve.append(train_loss)
+
+                if val_data:
+                    val_loss = self.score_batch(val_data)
+                    val_loss_curve.append(val_loss.item())
+
+                if verbose and i % 10 == 0:
+                    if val_data:
+                        print('Epoch {}, Train Loss: {}, Val Loss :{}'.format(
+                            i,
+                            train_loss,
+                            val_loss
+                        ))
+                    else:
+                        print('Epoch {}, Loss: {}'.format(i, train_loss))
+
+                if val_data:
+                    if val_loss < best_val_loss:
+                        no_improvement_epochs = 0
+                        best_val_loss = val_loss
+                    else:
+                        no_improvement_epochs += 1
+
+                    if no_improvement_epochs > self.max_no_improvement:
+                        print('No improvement in val loss for {} epochs. Early Stopping at {}'.format(
+                            self.max_no_improvement,
+                            val_loss
+                        ))
+                        break
+
+                if abs(train_loss - prev_loss) < self.tol:
+                    print('Training loss converged within tolerance at {}'.format(
+                        train_loss
+                    ))
+                    break
+
+                prev_loss = train_loss
+
+            if val_data:
+                score = val_loss
+            else:
+                score = train_loss
+
+            if score < best_loss:
+                best_model = copy.deepcopy(self.module)
+                best_loss = score
+                best_train_loss_curve = train_loss_curve
+                if val_data:
+                    best_val_loss_curve = val_loss_curve
+
+        self.module = best_model
+        self.train_loss_curve = best_train_loss_curve
+        if val_data:
+            self.val_loss_curve = best_val_loss_curve
+
+    def score(self, data):
+        with torch.no_grad():
+            return self.module(data)
+
+    def score_batch(self, dataset):
+        loader = data_utils.DataLoader(
+            dataset,
+            batch_size=self.batch_size,
+            num_workers=4,
+            pin_memory=True
+        )
+
+        log_prob = 0
+
+        for j, d in enumerate(loader):
+            d = [a.to(self.device) for a in d]
+            log_prob += self.score(d).item()
+
+        return log_prob
 
 
 class SGDGMM(BaseSGDGMM):
@@ -136,5 +230,8 @@ class SGDGMM(BaseSGDGMM):
         )
 
     def init_params(self, loader):
-        _, centroids = minibatch_k_means(loader, self.k, device=self.device)
+        counts, centroids = minibatch_k_means(loader, self.k, device=self.device)
+        self.module.soft_weights.data = torch.log(counts / counts.sum())
         self.module.means.data = centroids
+        self.module.l_diag.data = nn.Parameter(torch.zeros(self.k, self.d, device=self.device))
+        self.module.l_lower.data = torch.zeros(self.k, self.d * (self.d - 1) // 2, device=self.device)

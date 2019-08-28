@@ -33,23 +33,34 @@ def k_means(X, k, max_iters=50, tol=1e-9, device=None):
         return resp.float(), centroids
 
 
-def minibatch_k_means(loader, k, max_iters=50, tol=1e-9, device=None):
+def minibatch_k_means(loader, k, max_iters=50, tol=1e-3, device=None):
 
     centroids = next(iter(loader))[0][:k].to(device)
-    counts = torch.zeros(k, device=device)
+    counts = torch.ones(k, device=device)
 
+    prev_norm = torch.tensor(0.0, device=device)
 
-    for i in range(max_iters):
+    print('Stating minibatch_k_means')
+    for j in range(max_iters):
+        print('Iter: {}'.format(j))
         for X, _ in loader:
             X = X.to(device)
-            distances = (X[:, None, :] - centroids[None, :, :]).norm(dim=2)
-            labels = distances.min(dim=1)[1]
+            diffs = X[:, None, :] - centroids[None, :, :]
+            labels = diffs.norm(dim=2).min(dim=1)[1]
 
-            for i, x in enumerate(X):
-                label = labels[i]
-                counts[label] += 1
-                eta = 1 / counts[label]
-                centroids[label] += eta * (x - centroids[label])
+            counts += torch.bincount(labels, minlength=k).float()
+            eta = 1 / counts
 
+            for q in range(k):
+                centroids[q] += eta[q] * (diffs[labels == q, q, :]).sum(dim=0)
+
+        norm = torch.norm(centroids, dim=0).sum()
+
+        if torch.abs(norm - prev_norm) < tol:
+            print('Converged')
+            return counts, centroids
+        prev_norm = norm
+
+    print('Finished minibatch_k_means')
     return counts, centroids
 
