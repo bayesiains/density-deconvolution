@@ -10,11 +10,11 @@ mvn = dist.multivariate_normal.MultivariateNormal
 
 class BaseGMM(ABC):
 
-    def __init__(self, components, dimensions, max_iters=100,
+    def __init__(self, components, dimensions, epochs=100,
                  w=1e-6, tol=1e-9, restarts=5, device=None):
         self.k = components
         self.d = dimensions
-        self.max_iters = max_iters
+        self.epochs = epochs
         self.w = w
         self.tol = tol
         self.restarts = restarts
@@ -47,7 +47,7 @@ class BaseGMM(ABC):
 
             prev_log_prob = torch.tensor(float('-inf'), device=self.device)
 
-            for i in range(self.max_iters):
+            for i in range(self.epochs):
                 log_prob, expectations = self._e_step(data)
                 if log_prob == n_inf:
                     break

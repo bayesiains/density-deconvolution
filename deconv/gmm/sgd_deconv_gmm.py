@@ -44,9 +44,10 @@ class SGDDeconvDataset(data_utils.Dataset):
 class SGDDeconvGMM(BaseSGDGMM):
 
     def __init__(self, components, dimensions, epochs=10000, lr=1e-3,
-                 batch_size=64, tol=1e-6, restarts=5, device=None):
-        self.module = SGDDeconvGMMModule(components, dimensions, device)
+                 batch_size=64, tol=1e-6, w=1e-3, restarts=5, device=None):
+        self.module = SGDDeconvGMMModule(components, dimensions, w, device)
         super().__init__(
             components, dimensions, epochs=epochs, lr=lr,
-            batch_size=batch_size, tol=tol, restarts=restarts, device=device
+            batch_size=batch_size, w=w, tol=tol, restarts=restarts,
+            device=device
         )

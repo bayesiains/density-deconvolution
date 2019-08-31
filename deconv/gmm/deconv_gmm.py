@@ -8,30 +8,12 @@ mvn = dist.multivariate_normal.MultivariateNormal
 
 class DeconvGMM(BaseGMM):
 
-    def __init__(self, components, dimensions, max_iters=1000, gamma=1,
-                 omega=None, eta=0, m_hat=0, w=1e-6, tol=1e-6, restarts=5,
-                 device=None):
-        super().__init__(components, dimensions, max_iters=max_iters, tol=tol,
+    def __init__(self, components, dimensions, epochs=1000,
+                 w=1e-6, tol=1e-6, restarts=5, device=None):
+        super().__init__(components, dimensions, epochs=epochs, tol=tol,
                          restarts=restarts, device=device)
 
-        if len(torch.tensor(gamma).shape) == 0:
-            self.gamma = gamma * torch.ones(self.k, 1, device=self.device)
-        else:
-            self.gamma = gamma
-
-        self.eta = eta
-        if len(torch.tensor(m_hat).shape) == 0:
-            self.m_hat = m_hat * torch.ones(self.d, device=self.device)
-        else:
-            self.m_hat = m_hat
-
-        if omega is None:
-            self.omega = (self.d + 1) / 2
-
-        if len(torch.tensor(w).shape) == 0:
-            self.w = w * torch.eye(self.d, device=self.device)
-        else:
-            self.w = w
+        self.w = w * torch.eye(self.d, device=self.device)
 
     def _init_expectations(self, data):
 

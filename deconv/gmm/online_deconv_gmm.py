@@ -7,21 +7,22 @@ from .util import minibatch_k_means
 
 class OnlineDeconvGMM(DeconvGMM):
 
-    def __init__(self, components, dimensions, max_iters=10000, gamma=1,
-                 omega=None, eta=0, w=1e-6, tol=1e-6, step_size=0.1,
-                 batch_size=100, restarts=5, max_no_improvement=20,
-                 device=None):
-        super().__init__(components, dimensions, max_iters=max_iters,
-                         gamma=gamma, omega=omega, eta=eta, w=w, tol=tol,
+    def __init__(self, components, dimensions, epochs=1000, w=1e-6,
+                 tol=1e-6, step_size=0.1, batch_size=100, restarts=5,
+                 max_no_improvement=20, k_means_factor=100,
+                 k_means_iters=10, device=None):
+        super().__init__(components, dimensions, epochs=epochs, w=w, tol=tol,
                          restarts=restarts, device=device)
         self.batch_size = batch_size
         self.step_size = step_size
         self.max_no_improvement = max_no_improvement
+        self.k_means_factor = k_means_factor
+        self.k_means_iters = k_means_iters
 
     def _init_sum_stats(self, loader, n):
 
         counts, centroids = minibatch_k_means(
-            loader, self.k, device=self.device
+            loader, self.k, max_iters=self.k_means_iters, device=self.device
         )
 
         self.weights = counts[:, None] / counts.sum()
@@ -46,11 +47,19 @@ class OnlineDeconvGMM(DeconvGMM):
             drop_last=True
         )
 
+        init_loader = data_utils.DataLoader(
+            data,
+            batch_size=self.k_means_factor * self.batch_size,
+            num_workers=4,
+            shuffle=True,
+            pin_memory=True
+        )
+
         n = len(data)
 
-        n_inf = torch.tensor(float('-inf'), device=self.device)
+        n_inf = float('-inf')
 
-        best_ll = torch.tensor(float('-inf'), device=self.device)
+        best_ll = float('-inf')
 
         for j in range(self.restarts):
 
@@ -58,50 +67,50 @@ class OnlineDeconvGMM(DeconvGMM):
             if val_data:
                 val_ll_curve = []
 
-            self._init_sum_stats(loader, n)
+            self._init_sum_stats(init_loader, n)
 
-            prev_ll = torch.tensor(float('-inf'), device=self.device)
-            max_val_ll = torch.tensor(float('-inf'), device=self.device)
+            prev_ll = float('-inf')
+            max_val_ll = float('-inf')
             no_improvements = 0
 
-            for i in range(self.max_iters):
-                running_log_prob = torch.zeros(1, device=self.device)
+            for i in range(self.epochs):
+                train_ll = 0.0
                 for _, d in enumerate(loader):
                     d = [a.to(self.device) for a in d]
                     log_prob, expectations = self._e_step(d)
                     if log_prob == n_inf:
                         break
-                    running_log_prob += log_prob
+                    train_ll += log_prob.item()
                     self._m_step(expectations, n, self.step_size)
 
-                if running_log_prob == 0.0:
+                if train_ll == 0.0:
                     print('Log prob 0, crashed.')
                     train_ll = 0.0
                     val_ll = 0.0
                     break
 
                 train_ll = self.score_batch(data)
-                train_ll_curve.append(train_ll.item())
+                train_ll_curve.append(train_ll)
 
                 if val_data:
                     val_ll = self.score_batch(val_data)
-                    val_ll_curve.append(val_ll.item())
+                    val_ll_curve.append(val_ll)
 
                 if verbose and i % interval == 0:
                     if val_data:
                         print('Epoch {}, Train LL: {}, Val LL: {}'.format(
                             i,
-                            train_ll.item(),
-                            val_ll.item()
+                            train_ll,
+                            val_ll
                         ))
                     else:
                         print('Epoch {}, Train LL: {}'.format(
-                            i, train_ll.item())
-                        )
+                            i, train_ll
+                        ))
 
-                if torch.abs(train_ll - prev_ll) < self.tol:
+                if abs(train_ll - prev_ll) < self.tol:
                     print('Train LL converged within tolerance at {}'.format(
-                        train_ll.item()
+                        train_ll
                     ))
                     break
 
@@ -115,7 +124,7 @@ class OnlineDeconvGMM(DeconvGMM):
                     if no_improvements > self.max_no_improvement:
                         print('No improvement in val LL for {} epochs. Early Stopping at {}'.format(
                             self.max_no_improvement,
-                            val_ll.item()
+                            val_ll
                         ))
                         break
 
@@ -140,7 +149,7 @@ class OnlineDeconvGMM(DeconvGMM):
                     best_val_ll_curve = val_ll_curve
 
         if best_ll == n_inf:
-            raise ValueError('Could not fit model. Try increasing chol_reg?')
+            raise ValueError('Could not fit model. Try increasing w?')
 
         self.weights, self.means, self.covars, self.chol_covars = best_params
         self.train_ll_curve = best_train_ll_curve
@@ -171,14 +180,12 @@ class OnlineDeconvGMM(DeconvGMM):
         self.means = self.sum_cond_means / self.sum_resps
 
         self.sum_dev_ps = (1 - step_size) * self.sum_dev_ps + step_size * sum_dev_ps
-        self.covars = self.sum_dev_ps / self.sum_resps[:, :, None]
-
+        self.covars = self.sum_dev_ps / self.sum_resps[:, :, None] + self.w
 
         self.weights = self.sum_resps / self.batch_size
 
-
     def score_batch(self, dataset):
-        log_prob = 0
+        log_prob = 0.0
 
         loader = data_utils.DataLoader(
             dataset,
@@ -190,6 +197,6 @@ class OnlineDeconvGMM(DeconvGMM):
         for _, d in enumerate(loader):
             d = [a.to(self.device) for a in d]
             lp, _ = self._e_step(d)
-            log_prob += lp
+            log_prob += lp.item()
 
         return log_prob

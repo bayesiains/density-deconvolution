@@ -13,7 +13,7 @@ mvn = dist.multivariate_normal.MultivariateNormal
 
 class SGDGMMModule(nn.Module):
 
-    def __init__(self, components, dimensions, device=None):
+    def __init__(self, components, dimensions, w, device=None):
         super().__init__()
 
         self.k = components
@@ -33,6 +33,8 @@ class SGDGMMModule(nn.Module):
         self.d_idx = torch.eye(self.d, device=self.device).to(torch.bool)
         self.l_idx = torch.tril_indices(self.d, self.d, -1, device=self.device)
 
+        self.w = w * torch.eye(self.d, device=device)
+
     @property
     def L(self):
         L = torch.zeros(self.k, self.d, self.d, device=self.device)
@@ -42,7 +44,7 @@ class SGDGMMModule(nn.Module):
 
     @property
     def covars(self):
-        return torch.matmul(self.L, torch.transpose(self.L, -2, -1))
+        return torch.matmul(self.L, torch.transpose(self.L, -2, -1)) + self.w
 
     def forward(self, data):
 
@@ -64,13 +66,14 @@ class BaseSGDGMM(ABC):
 
     def __init__(self, components, dimensions, epochs=10000, lr=1e-3,
                  batch_size=64, tol=1e-6, restarts=5, max_no_improvement=20,
-                 k_means_factor=100, k_means_iters=10, device=None):
+                 k_means_factor=100, w=1e-6, k_means_iters=10, device=None):
         self.k = components
         self.d = dimensions
         self.epochs = epochs
         self.batch_size = batch_size
         self.tol = 1e-6
         self.lr = lr
+        self.w = w
         self.restarts = restarts
         self.k_means_factor = k_means_factor
         self.k_means_iters = k_means_iters
@@ -226,12 +229,13 @@ class BaseSGDGMM(ABC):
         self.module.l_diag.data = nn.Parameter(torch.zeros(self.k, self.d, device=self.device))
         self.module.l_lower.data = torch.zeros(self.k, self.d * (self.d - 1) // 2, device=self.device)
 
+
 class SGDGMM(BaseSGDGMM):
 
     def __init__(self, components, dimensions, epochs=10000, lr=1e-3,
-                 batch_size=64, tol=1e-6, device=None):
-        self.module = SGDGMMModule(components, dimensions, device)
+                 batch_size=64, tol=1e-6, w=1e-3, device=None):
+        self.module = SGDGMMModule(components, dimensions, w, device)
         super().__init__(
             components, dimensions, epochs=epochs, lr=lr,
-            batch_size=batch_size, tol=tol, device=device
+            batch_size=batch_size, w=w, tol=tol, device=device
         )
