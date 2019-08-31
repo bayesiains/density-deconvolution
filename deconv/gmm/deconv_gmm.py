@@ -37,9 +37,6 @@ class DeconvGMM(BaseGMM):
 
         X, noise_covars = data
 
-        n = X.shape[0]
-        log_resps = torch.empty(n, self.k, device=self.device)
-
         T = self.covars[None, :, :, :] + noise_covars[:, None, :, :]
         try:
             T_chol = torch.cholesky(T)
@@ -49,12 +46,11 @@ class DeconvGMM(BaseGMM):
             torch.eye(self.d, device=self.device), T_chol
         )
 
-        for j in range(self.k):
-            log_resps[:, j] = mvn(
-                loc=self.means[None, j, :],
-                scale_tril=T_chol[:, j, :, :]
-            ).log_prob(X)
-            log_resps[:, j] += torch.log(self.weights[j])
+        log_resps = mvn(
+            loc=self.means[None, :, :],
+            scale_tril=T_chol
+        ).log_prob(X[:, None, :])
+        log_resps += torch.log(self.weights[None, :, 0])
 
         diff = X[:, None, :] - self.means
 
