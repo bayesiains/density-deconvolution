@@ -1,5 +1,5 @@
 import argparse
-import pickle
+import json
 import time
 
 import numpy as np
@@ -56,12 +56,11 @@ def fit_gaia_lim_sgd(datafile, output_prefix, K, batch_size, epochs, lr,
         'train_curve': gmm.train_loss_curve,
         'val_curve': gmm.val_loss_curve
     }
-    pickle.dump(results, file=open(str(output_prefix) + '_results.pkl', mode='wb'))
+    json.dump(results, file=open(str(output_prefix) + '_results.json', mode='w'))
     torch.save(gmm.module.state_dict(), output_prefix + '_params.pkl')
 
 
 if __name__ == '__main__':
-    
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-c', '--components', type=int)
@@ -69,6 +68,7 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--epochs', type=int)
     parser.add_argument('-l', '--learning-rate', type=float)
     parser.add_argument('-w', '--w_reg', type=float)
+    parser.add_argument('-k', '--k-means-iters', type=int)
     parser.add_argument('--use-cuda', action='store_true', help='Use GPU')
     parser.add_argument('datafile')
     parser.add_argument('output_prefix')
@@ -83,5 +83,6 @@ if __name__ == '__main__':
         args.epochs,
         args.learning_rate,
         args.w_reg,
+        args.k_means_iters,
         args.use_cuda
     )
