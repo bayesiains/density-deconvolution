@@ -1,3 +1,4 @@
+import argparse
 
 import numpy as np
 import pandas as pd
@@ -14,7 +15,7 @@ columns = [
     'pmra',
     'pmdec',
     'bp_rp',
-    'phot_g_mean_flux'
+    'phot_g_mean_mag'
 ]
 
 error_columns = [
@@ -23,7 +24,6 @@ error_columns = [
     'parallax_error',
     'pmra_error',
     'pmdec_error',
-    'phot_g_mean_flux_error'
 ]
 
 corr_map = {
@@ -44,22 +44,22 @@ def get_covar(row):
     return np.diag(row[error_columns].fillna(1e12).to_numpy(dtype=np.float32))
 
 
-def vot_to_pandas(vot_file, output):
+def vot_to_pandas(vot_file):
 
     tb = Table.read(vot_file)
 
-    df = tb[columns + error_columns + corr_map.keys()].to_pandas()
-    df.to_hdf(output, 'table')
+    df = tb[columns + error_columns + list(corr_map.keys())].to_pandas()
+    return df
 
 
-def pandas_to_numpy(pandas_hdf5_file, output_file):
-    df = pd.read_hdf(pandas_hdf5_file, 'table')
+def pandas_to_numpy(df, output_file):
+    df.insert(12, column='phot_g_mean_mag_error', value=0.01)
     df.insert(12, column='bp_rp_error', value=0.01)
+    error_columns.insert(5, 'phot_g_mean_mag_error')
     error_columns.insert(5, 'bp_rp_error')
-    print(error_columns)
 
     X = df[columns].fillna(0.0).to_numpy(dtype=np.float32)
-    C = np.zeros((len(df), 7, 7))
+    C = np.zeros((len(df), 7, 7), dtype=np.float32)
     diag = np.arange(7)
     C[:, diag, diag] = df[error_columns].fillna(1e6).to_numpy(
         dtype=np.float32
@@ -88,3 +88,14 @@ def pandas_to_numpy(pandas_hdf5_file, output_file):
         X_test=X_test,
         C_test=C_test
     )
+
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('input_file')
+    parser.add_argument('output_file')
+
+    args = parser.parse_args()
+
+    df = vot_to_pandas(args.input_file)
+    pandas_to_numpy(df, args.output_file)
