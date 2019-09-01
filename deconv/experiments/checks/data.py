@@ -2,7 +2,7 @@ import numpy as np
 
 
 def generate_data(D, K, N):
-    means = (np.random.rand(K, D) * 200) - 100
+    means = (np.random.rand(K, D) * 2000) - 1000
     q = (2 * np.random.randn(K, D, D))
     covars = np.matmul(q.swapaxes(1, 2), q)
 

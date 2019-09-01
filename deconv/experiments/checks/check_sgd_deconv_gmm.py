@@ -92,6 +92,6 @@ def check_sgd_deconv_gmm(D, K, N, plot=False, verbose=False, device=None):
 if __name__ == '__main__':
     sns.set()
     D = 2
-    K = 128
-    N = 200
+    K = 3
+    N = 500
     check_sgd_deconv_gmm(D, K, N, verbose=True, plot=True)
