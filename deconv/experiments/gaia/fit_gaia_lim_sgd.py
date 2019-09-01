@@ -56,7 +56,7 @@ def fit_gaia_lim_sgd(datafile, output_prefix, K, batch_size, epochs, lr,
         'train_curve': gmm.train_loss_curve,
         'val_curve': gmm.val_loss_curve
     }
-    json.dump(results, file=open(str(output_prefix) + '_results.json', mode='w'))
+    json.dump(results, open(str(output_prefix) + '_results.json', mode='w'))
     torch.save(gmm.module.state_dict(), output_prefix + '_params.pkl')
 
 

@@ -59,7 +59,7 @@ def fit_gaia_lim_em(datafile, output_prefix, K, batch_size, epochs, step_size, w
         'val_curve': gmm.val_ll_curve
     }
 
-    json.dump(results, file=open(str(output_prefix) + '_results.json', mode='w'))
+    json.dump(results, open(str(output_prefix) + '_results.json', mode='w'))
     torch.save(
         (gmm.weights, gmm.means, gmm.covars),
         output_prefix + '_params.pkl'
