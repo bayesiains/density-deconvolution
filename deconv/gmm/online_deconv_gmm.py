@@ -35,8 +35,6 @@ class OnlineDeconvGMM(DeconvGMM):
 
         self.sum_cond_means = self.means * self.sum_resps
 
-        self.sum_dev_ps = self.covars * self.sum_resps[:, :, None]
-
     def fit(self, data, val_data=None, verbose=False, interval=1):
         loader = data_utils.DataLoader(
             data,
@@ -156,32 +154,61 @@ class OnlineDeconvGMM(DeconvGMM):
         if val_data:
             self.val_ll_curve = best_val_ll_curve
 
+    def _adjust(self, covar, scale, b, c):
+        result = scale[:, :, None] * covar
+        scale_sqrt = torch.sqrt(scale)
+
+        diffs = (scale_sqrt * b - c)
+        sums = (scale_sqrt * b + c)
+
+        result += 0.5 * diffs[:, :, None] * sums[:, None, :]
+        result += 0.5 * sums[:, :, None] * diffs[:, None, :]
+
+        return result
+
     def _m_step(self, expectations, n, step_size):
         log_resps, cond_means, cond_covars = expectations
         resps = torch.exp(log_resps)[:, :, None]    # n, j, 1
 
+        resps += 10 * torch.finfo(resps.dtype).eps
+
         sum_resps = resps.sum(dim=0)
 
+        sum_resps += 10 * torch.finfo(sum_resps.dtype).eps
+
         sum_cond_means = (resps * cond_means).sum(dim=0)
+        batch_means = sum_cond_means / sum_resps
 
-        diffs = cond_means - self.means
-
+        diffs = (cond_means - batch_means)
         outer_p = diffs[:, :, :, None] * diffs[:, :, None, :]
         outer_p += cond_covars
 
-        sum_dev_ps = torch.sum(
+        batch_covars = torch.sum(
             resps[:, :, :, None] * outer_p,
             dim=0
-        )
+        ) / sum_resps[:, :, None]
+
+        m_old = self.means.clone()
+        sum_resps_old = self.sum_resps.clone()
 
         self.sum_resps = (1 - step_size) * self.sum_resps + step_size * sum_resps
-        self.sum_cond_means = (1 - step_size) * self.sum_cond_means + step_size * sum_cond_means
 
+        self.sum_cond_means = (1 - step_size) * self.sum_cond_means + step_size * sum_cond_means
         self.means = self.sum_cond_means / self.sum_resps
 
-        self.sum_dev_ps = (1 - step_size) * self.sum_dev_ps + step_size * sum_dev_ps
-        self.covars = self.sum_dev_ps / self.sum_resps[:, :, None] + self.w
-
+        shrunk_covar = (1 - step_size) * self._adjust(
+            self.covars - self.w,
+            sum_resps_old / self.sum_resps,
+            m_old,
+            self.means
+        )
+        new_covar = step_size * self._adjust(
+            batch_covars,
+            sum_resps / self.sum_resps,
+            batch_means,
+            self.means
+        )
+        self.covars = shrunk_covar + new_covar + self.w
         self.weights = self.sum_resps / self.batch_size
 
     def score_batch(self, dataset):
