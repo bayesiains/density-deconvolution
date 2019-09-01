@@ -1,3 +1,0 @@
-[submodule "deps/original_xd"]
-	path = deps/original_xd
-	url = https://github.com/jobovy/extreme-deconvolution
