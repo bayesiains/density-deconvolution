@@ -3,6 +3,7 @@
 #SBATCH -n 1      # tasks requested
 #SBATCH --gres=gpu:1
 #SBATCH --mem=14000  # memory in Mb
+#SBATCH --cpus-per-task=8
 #SBATCH --time=0-05:00:00
 #SBATCH -o output/sgd-%A_%a.txt  # send stdout to outfile
 #SBATCH -e output/sgd_error-%A_%a.txt  # send stderr to errfile
