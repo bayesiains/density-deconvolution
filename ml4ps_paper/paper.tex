@@ -25,8 +25,9 @@
 \usepackage{amsfonts}       % blackboard math symbols
 \usepackage{amsmath}
 \usepackage{nicefrac}       % compact symbols for 1/2, etc.
-\usepackage{microtype}
-\usepackage{color}      % microtypography
+\usepackage{microtype}      % microtypography
+\usepackage{color}
+\usepackage{graphicx}
 
 \setcitestyle{numbers}
 \setcitestyle{square}
@@ -179,22 +180,32 @@ We used a validation set comprising $10\%$ of the rows when developing our exper
 Final model performance was evaluated on a different held-out test set also comprising 10\% of the rows at the last stage, with no parameter selection or development done based on this value.
 Table~\ref{results-table} reports the validation and test log-likelihoods for each method.
 
-\todo{Add a 2D projection of an example solution?}
-
 \begin{table}
-  \caption{Total validation and test log-likelihoods along with average training time for the Gaia data subset. Average over 5 runs with standard deviation.}
+  \caption{Average validation and test log-likelihoods with average training time for the Gaia data subset for different numbers of mixture components $K$.  Average over 5 runs with standard deviation.}
   \label{results-table}
   \centering
-  \begin{tabular}{lccc}
+  \begin{tabular}{lcccc}
     \toprule
-    Method     & Validation     & Test & Training Time (minutes) \\
+    Method     & K &  Validation     & Test & Time (minutes) \\
     \midrule
-    Existing EM (\citet{bovyExtremeDeconvolutionInferring2011}) & $-5.191 (\pm 0.0080) \times 10^6$  & - & $101.1 \pm 2.19$    \\
-    Minibatch EM & $-5.183 (\pm 0.0005) \times 10^6$    & - & $48.7 \pm 0.39$      \\
-    SGD     & $-5.193 (\pm 0.0029) \times 10^6$        & - & $36.0 \pm 0.34$ \\
+    Existing EM  & 128 & $-25.95 \pm 0.04$  & - & $101.1 \pm 2.19$    \\
+    (\citet{bovyExtremeDeconvolutionInferring2011}) & 256 & $-25.76 \pm 0.02$ & - & $195.3 \pm 4.08$ \\
+    \midrule
+    Minibatch EM & 128 & $-25.92 \pm 0.01$ & - & $44.5 \pm 1.0$      \\
+    & 256 & $-25.83 \pm 0.003$ & - & $51.6 \pm 3.0$ \\
+    \midrule
+    SGD  & 128  & $-25.94 \pm 0.01$ & - & $34.0 \pm 0.83$ \\
+    & 256 &$-25.84 \pm 0.01$ & - & $36.6 \pm 1.3$ \\
     \bottomrule
   \end{tabular}
 \end{table}
+
+\begin{figure}
+  \centering
+  \includegraphics{density.pdf}
+  \caption{Density plot showing a 2-D projection of 100000 samples drawn from a model with $K=256$ and fitted with the minibatch EM method.
+  The plot shows the estimated density of star positions on the sky, and has correctly recovered the structure of the Milky Way.}
+\end{figure}
 
 \todo{Add plot of log-likelihood results against dataset size.}
 
