@@ -42,6 +42,7 @@ def fit_gaia_baseline(datafile, output_prefix, K, epochs, w_reg,
         means,
         covars,
         w=w_reg,
+        logfile=str(output_prefix) + '_log',
         maxiter=epochs
     )
 
