@@ -9,7 +9,8 @@ from deconv.gmm.sgd_deconv_gmm import SGDDeconvGMM, SGDDeconvDataset
 
 
 def fit_gaia_lim_sgd(datafile, output_prefix, K, batch_size, epochs, lr,
-                     w_reg, k_means_iters, use_cuda):
+                     w_reg, k_means_iters, lr_step, lr_gamma,
+                     use_cuda):
     data = np.load(datafile)
 
     if use_cuda:
@@ -36,7 +37,9 @@ def fit_gaia_lim_sgd(datafile, output_prefix, K, batch_size, epochs, lr,
         w=w_reg,
         restarts=1,
         k_means_iters=k_means_iters,
-        lr=lr
+        lr=lr,
+        lr_step=lr_step,
+        lr_gamma=lr_gamma
     )
     start_time = time.time()
     gmm.fit(train_data, val_data=val_data, verbose=True)
@@ -69,6 +72,8 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--learning-rate', type=float)
     parser.add_argument('-w', '--w_reg', type=float)
     parser.add_argument('-k', '--k-means-iters', type=int)
+    parser.add_argument('--lr-step', type=int)
+    parser.add_argument('--lr-gamma', type=float)
     parser.add_argument('--use-cuda', action='store_true', help='Use GPU')
     parser.add_argument('datafile')
     parser.add_argument('output_prefix')
@@ -84,5 +89,7 @@ if __name__ == '__main__':
         args.learning_rate,
         args.w_reg,
         args.k_means_iters,
+        args.lr_step,
+        args.lr_gamma,
         args.use_cuda
     )

@@ -66,7 +66,8 @@ class BaseSGDGMM(ABC):
 
     def __init__(self, components, dimensions, epochs=10000, lr=1e-3,
                  batch_size=64, tol=1e-6, restarts=5, max_no_improvement=20,
-                 k_means_factor=100, w=1e-6, k_means_iters=10, device=None):
+                 k_means_factor=100, w=1e-6, k_means_iters=10, lr_step=5,
+                 lr_gamma=0.1, device=None):
         self.k = components
         self.d = dimensions
         self.epochs = epochs
@@ -89,6 +90,11 @@ class BaseSGDGMM(ABC):
         self.optimiser = torch.optim.Adam(
             params=self.module.parameters(),
             lr=self.lr
+        )
+        self.scheduler = torch.optim.lr_scheduler.StepLR(
+            self.optimiser,
+            step_size=lr_step,
+            gamma=lr_gamma
         )
 
     @property
@@ -152,6 +158,8 @@ class BaseSGDGMM(ABC):
                 if val_data:
                     val_loss = self.score_batch(val_data)
                     val_loss_curve.append(val_loss)
+
+                self.scheduler.step()
 
                 if verbose and i % interval == 0:
                     if val_data:
