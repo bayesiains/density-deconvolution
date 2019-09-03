@@ -163,16 +163,17 @@ Having removed the constraints, we can then take the gradient of the log-likelih
 \section{Experiments}
 
 We implemented both of our methods in PyTorch.
-To evaluate our methods, we used a subset of rows from the Gaia DR2 source table \cite{brownGaiaDataRelease2018}.
+To evaluate our methods, we used a random sample of rows from the Gaia DR2 source table~\cite{brownGaiaDataRelease2018}.
 We selected the 5 primary astrometric features, along with the BP-RP colour and mean flux in the G-band.
-In total there were approximately 2 million rows.
+In total there were 2 million rows.
 Where data were missing, we set the field to zero and the noise variance to a large value.
 This is only a small fraction of the full dataset size, but this allows us to fit the training data into memory, a requirement for use with the original implementation of extreme deconvolution.
-We used the same number of components $K=128$ for each model, following \cite{andersonImprovingGaiaParallax2018}.
+We used the same number of components $K=128$ for each model, following \citet{andersonImprovingGaiaParallax2018}.
 In practice we would want to select a value of $K$ by cross-validation.
 
 Initialisation of all models was performed by first running a minibatch version of the K-means clustering algorithm on the dataset to get estimates of the weights and means \cite{sculleyWebscaleKmeansClustering2010}.
 Initial covariances were set to the identity matrix.
+Training was done for a maximum of 20 epochs.
 Early stopping was done based on a held-out validation set comprising 10\% of the rows.
 Final model performance was evaluated on a different held-out test set also comprising 10\% of the rows at the last stage, with no parameter selection performed based on this value.
 Table~\ref{results-table} reports the validation and test log-likelihoods for each method.
@@ -185,11 +186,11 @@ Table~\ref{results-table} reports the validation and test log-likelihoods for ea
   \centering
   \begin{tabular}{lccc}
     \toprule
-    Method     & Validation     & Test & Training Time (s) \\
+    Method     & Validation     & Test & Training Time (minutes) \\
     \midrule
-    Existing EM & -  & -     \\
-    Minibatch EM     & - & -      \\
-    SGD     & $-5.468 (\pm 0.0025) \times 10^6$        & - & $1469 \pm 11$ \\
+    Existing EM & $-5.191 (\pm 0.0080) \times 10^6$  & - & $101.1 \pm 2.19$    \\
+    Minibatch EM & $-5.183 (\pm 0.0005) \times 10^6$    & - & $48.7 \pm 0.39$      \\
+    SGD     & $-5.193 (\pm 0.0029) \times 10^6$        & - & $36.0 \pm 0.34$ \\
     \bottomrule
   \end{tabular}
 \end{table}
