@@ -2,7 +2,7 @@
 #SBATCH -N 1      # nodes requested
 #SBATCH -n 1      # tasks requested
 #SBATCH --gres=gpu:1
-#SBATCH --mem=14000  # memory in Mb
+#SBATCH --mem=8000  # memory in Mb
 #SBATCH --cpus-per-task=8
 #SBATCH --time=0-05:00:00
 #SBATCH -o output/sgd-%A_%a.txt  # send stdout to outfile
@@ -11,4 +11,4 @@
 
 source ~/.bashrc
 conda activate deconv
-python deconv/experiments/gaia/fit_gaia_lim_sgd.py -c 128 -b 500 -e 20 -l 0.01 -w=0.001 -k 10 --use-cuda data/gaia_sample_mag.npz results/sgd_${SLURM_JOBID}
+python deconv/experiments/gaia/fit_gaia_lim_sgd.py -c 128 -b 500 -e 30 -l 0.01 -w=0.001 -k 10 --lr-step 10 --lr-gamma 0.1 --use-cuda data/gaia_sample_mag.npz results/sgd_schedule_${SLURM_JOBID}

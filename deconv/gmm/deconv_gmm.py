@@ -1,3 +1,5 @@
+import math
+
 import torch
 import torch.distributions as dist
 
@@ -46,20 +48,21 @@ class DeconvGMM(BaseGMM):
             torch.eye(self.d, device=self.device), T_chol
         )
 
-        log_resps = mvn(
-            loc=self.means[None, :, :],
-            scale_tril=T_chol
-        ).log_prob(X[:, None, :])
-        log_resps += torch.log(self.weights[None, :, 0])
-
         diff = X[:, None, :] - self.means
+        T_inv_diff = torch.matmul(T_inv, diff[:, :, :, None])
+        log_resps = -0.5 * (
+            torch.matmul(
+                diff[:, :, None, :],
+                T_inv_diff
+            ) + self.d * math.log(2 * math.pi)
+        ).squeeze()
+        log_resps -= T_chol.diagonal(dim1=-2, dim2=-1).log().sum(-1)
+
+        log_resps += torch.log(self.weights[None, :, 0])
 
         cond_means = self.means + torch.matmul(  # n, j, d
             self.covars[None, :, :, :],     # 1, j, d, d
-            torch.matmul(                   # n, j, d, 1
-                T_inv,                      # n, j, d, d
-                diff[:, :, :, None]         # n, j, d, 1
-            )
+            T_inv_diff
         )[:, :, :, 0]
 
         cond_covars = self.covars - torch.matmul(   # n, j, d, d
