@@ -86,7 +86,7 @@ The Hipparcos catalogue consists of astrometric solutions (positions and velocit
 
 The successor to the Hipparcos mission, Gaia, aims to produce an even larger catalogue, with entries for an estimated 1 billion astronomical objects~\cite{collaborationGaiaMission2016}.
 Previous work using an extreme deconvolution model on the Gaia catalogue had to work with a subset of the data, as the existing method of fitting the models cannot work with very large datasets \cite{andersonImprovingGaiaParallax2018}.
-It requires all of the data to fit in memory, and must make a full pass over the dataset before it can update parameters.
+It must make a full pass over the dataset before it can update parameters, and the reference implementation requires all the data to fit in memory.
 
 In this work, we propose two new methods for fitting the extreme deconvolution model that can scale to the full dataset size, based on an online variation of the Expectation-Maximisation (EM) algorithm, and minibatch gradient descent on the log-likelihood.
 We develop implementations that can leverage GPU-based computation, and show that they provide comparable density estimates to the existing method, whilst being much faster to train.
@@ -108,7 +108,6 @@ and the total log-likehood of the dataset is
 \end{equation}
 
 Missing data can be handled either by making $R_i$ rank-deficient, or by setting elements of the covariance matrix $S_i$ to very large values.
-For simplicity in the remainder of this work we will set $R_i$ to be the identity matrix and handle missing data via the covariance method.
 
 \section{Methods}
 
@@ -118,9 +117,9 @@ The original method of fitting the extreme deconvolution model used a modificati
 Here we describe a minibatch version of this algorithm based on~\citet{cappeOnlineExpectationMaximization2009}'s online EM algorithm for latent data models.
 At each iteration $t$, we compute the sufficient statistics of the latent data $\bv_i$ for each component $j$ in the minibatch of size N, using our current estimate of the parameters,
 \begin{equation}
-r_{ij} = \frac{\alpha_j \mathcal{N}(\bx_i \mid \bm_j, T_{ij})}{\sum_k \alpha_k \mathcal{N}(\bx_i \mid \bm_k, T_{ik})}, \quad
-\bb_{ij} = m_j + V_jT_{ij}^{-1}(\bx_i - \bm_j), \quad
-B_{ij} = V_j - V_j T_{ij}^{-1}V_j.
+r_{ij} = \frac{\alpha_j \mathcal{N}(\bx_i \mid R_i\bm_j, T_{ij})}{\sum_k \alpha_k \mathcal{N}(\bx_i \mid R_i\bm_k, T_{ik})}, \ 
+\bb_{ij} = m_j + V_j R_i^T T_{ij}^{-1}(\bx_i - R_i \bm_j), \ 
+B_{ij} = V_j - V_j R_i^T T_{ij}^{-1}R_iV_j.
 \end{equation}
 The $r_{ij}$ term is just the posterior probability of datapoint $\bx_i$ coming from component $j$.
 The $\bb_{ij}$ and $B_{ij}$ terms result from the fact that $\bx_i$ and $\bv_i$ are jointly Gaussian, so the distribution of $\bv_i$ conditioned on $\bx_i$ is also Gaussian with mean $\bb_{ij}$ and covariance $B_{ij}$.
@@ -141,9 +140,10 @@ Finally, we normalise the updated sums of expected sufficient statistics to get 
 V_j = \frac{\hat{\phi}_j^3}{\hat{\phi}_j^1} - \bm_j \bm_j^T.
 \end{equation}
 This procedure is repeated with new randomly ordered minibatches until convergence.
-If we set $\lambda=1$ and replace each minibatch with the entire dataset then we recover the original fitting method.
+If we set $\lambda=1$, replace each minibatch with the entire dataset and factorise the update for $V_j$ then we recover the original fitting method.
+The update for $V_j$ could result in catastrophic cancellation if the variances of the components are small relative to the means, especially if single precision floats are used, as is standard with GPU computation.
+In Appendix~\ref{apx:variance-rewrite} we show how this update can be rewritten in a symbolically equivalent but more numerically stable form.
 
-\todo{Discuss numerical stability of the $V_j$ update.}
 
 \subsection{Stochastic Gradient Descent}
 
@@ -162,20 +162,21 @@ Having removed the constraints, we can then take the gradient of the log-likelih
 
 \section{Experiments}
 
-We implemented both of our methods in PyTorch.
-To evaluate our methods, we used a random sample of rows from the Gaia DR2 source table~\cite{brownGaiaDataRelease2018}.
-We selected the 5 primary astrometric features, along with the BP-RP colour and mean flux in the G-band.
+We implemented both of our methods in PyTorch, and compared against the reference implementation from \citet{bovyExtremeDeconvolutionInferring2011}.
+To evaluate each method, we used a random sample of rows from the Gaia DR2 source table~\cite{brownGaiaDataRelease2018}.
+We selected the 5 primary astrometric features, along with the BP-RP colour and mean magnitude in the G-band.
 In total there were 2 million rows.
 Where data were missing, we set the field to zero and the noise variance to a large value.
+We set the projection $R_i$ to the identity matrix for every sample.
 This is only a small fraction of the full dataset size, but this allows us to fit the training data into memory, a requirement for use with the original implementation of extreme deconvolution.
-We used the same number of components $K=128$ for each model, following \citet{andersonImprovingGaiaParallax2018}.
+We used the same number of components $K=256$ for each model.
 In practice we would want to select a value of $K$ by cross-validation.
 
 Initialisation of all models was performed by first running a minibatch version of the K-means clustering algorithm on the dataset to get estimates of the weights and means \cite{sculleyWebscaleKmeansClustering2010}.
 Initial covariances were set to the identity matrix.
-Training was done for a maximum of 20 epochs.
-Early stopping was done based on a held-out validation set comprising 10\% of the rows.
-Final model performance was evaluated on a different held-out test set also comprising 10\% of the rows at the last stage, with no parameter selection performed based on this value.
+Training was done for 20 epochs.
+We used a validation set comprising $10\%$ of the rows when developing our experiments.
+Final model performance was evaluated on a different held-out test set also comprising 10\% of the rows at the last stage, with no parameter selection or development done based on this value.
 Table~\ref{results-table} reports the validation and test log-likelihoods for each method.
 
 \todo{Add a 2D projection of an example solution?}
@@ -188,7 +189,7 @@ Table~\ref{results-table} reports the validation and test log-likelihoods for ea
     \toprule
     Method     & Validation     & Test & Training Time (minutes) \\
     \midrule
-    Existing EM & $-5.191 (\pm 0.0080) \times 10^6$  & - & $101.1 \pm 2.19$    \\
+    Existing EM (\citet{bovyExtremeDeconvolutionInferring2011}) & $-5.191 (\pm 0.0080) \times 10^6$  & - & $101.1 \pm 2.19$    \\
     Minibatch EM & $-5.183 (\pm 0.0005) \times 10^6$    & - & $48.7 \pm 0.39$      \\
     SGD     & $-5.193 (\pm 0.0029) \times 10^6$        & - & $36.0 \pm 0.34$ \\
     \bottomrule
@@ -219,5 +220,12 @@ In practice, we would suggest using the minibatch EM if the size of the dataset 
 \todo{Add discussion of projections $R_{ij}$}
 
 \bibliography{references}
+
+\appendix
+
+\section{Stable Variance Update}
+\label{apx:variance-rewrite}
+
+\section{Experiment Details}
 
 \end{document}
