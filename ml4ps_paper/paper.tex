@@ -39,6 +39,8 @@
 \newcommand{\bv}{\mathbf{v}}
 \newcommand{\bm}{\mathbf{m}}
 \newcommand{\bb}{\mathbf{b}}
+\newcommand{\bc}{\mathbf{c}}
+\newcommand{\bd}{\mathbf{d}}
 
 \newcommand{\todo}[1]{\textcolor{red}{TODO: #1}}
 
@@ -74,7 +76,7 @@
 
 The Extreme Deconvolution method fits a probability density to a dataset where every observation has Gaussian noise added with a known sample-specific covariance, originally intended for use with astronomical datasets.
 % The existing method of fitting the model cannot scale to new larger astronomy datasets. % -- too strong. Probably feasible, and compute only gets cheaper
-The existing fitting method is batch EM, which wouldn't normally be applied to large datasets such as the Gaia catalog, which contains noisy observations of a billion stars.
+The existing fitting method is batch EM, which would not normally be applied to large datasets such as the Gaia catalog, which contains noisy observations of a billion stars.
 We propose two minibatch variants of extreme deconvolution, based on an online variation of the EM algorithm, and direct gradient-based optimisation of the log-likelihood, both of which can run on GPUs.
 We demonstrate that these methods provide faster fitting of the model, whilst being able to scale to much larger datasets.
 
@@ -223,7 +225,7 @@ Figure~\ref{fig:projection} shows a 2-D projection from an example model with $K
 
 \begin{figure}
   \centering
-  \includegraphics{figures/learning.pdf}
+  \includegraphics[width=\textwidth]{figures/learning.pdf}
   \caption{\textbf{Left}: Average training log-likelihood as a function of training epoch for models with $K=256$. Epochs rescaled by average training time. Error bars not visible. \textbf{Right}: Training time as a function of mixture components $K$. Error bars indicate $\pm$ 2 standard deviations.}
   \label{fig:training}
 \end{figure}
@@ -257,8 +259,9 @@ In practice we would suggest using the minibatch EM method for relatively smalle
 
 \appendix
 
-\section{Stable Variance Update}
+\section{Stable Covariance Update}
 \label{apx:variance-rewrite}
+
 
 \section{Experiment Details}
 

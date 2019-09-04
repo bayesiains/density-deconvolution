@@ -1,8 +1,8 @@
 import os
 import numpy as np
-import torch
 
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
 import seaborn as sns
 
 from results_table import produce_table
@@ -26,18 +26,33 @@ baseline_curves = np.array([
     ) and f.endswith('loglike.log')
 ])
 
+axins = inset_axes(
+    axes[0], width='40%', height='40%', loc='lower right', borderpad=2
+)
+
 for l, result in zip(labels, table.values()):
     if l != 'Existing EM':
         x = np.arange(20) * (result[256][1].mean() / 20)
         y = result[256][2].mean(axis=0)
         y_err = 1.96 * result[256][2].std(axis=0)
+
     else:
         x = np.arange(20) * (result[256][1].mean() / 20)
         y = baseline_curves.mean(axis=0)
         y_err = 1.96 * baseline_curves.std(axis=0)
 
-    axes[0].plot(x, y)
-    axes[0].fill_between(x, y + y_err, y - y_err, alpha=0.5)
+    axes[0].plot(x, y, zorder=200)
+    axes[0].fill_between(x, y + y_err, y - y_err, alpha=0.5, zorder=200)
+    axins.plot(x, y)
+    axins.fill_between(x, y + y_err, y - y_err, alpha=0.5)
+
+
+axins.set_ylim(-26.2, -25.7)
+axins.set_xlim(-1, 50)
+axins.set_xticks([])
+axins.set_yticks([])
+plt.setp(axins.spines.values(), color='grey')
+mark_inset(axes[0], axins, loc1=1, loc2=3, ec='grey')
 
 k = np.array([64, 128, 256])
 
