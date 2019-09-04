@@ -72,25 +72,32 @@
 
 \begin{abstract}
 
-The Extreme Deconvolution method fits a probability density to a dataset where every observation has Gaussian noise added with a known sample-specific covariance, originally intended for use with astronomy datasets.
-The existing method of fitting the model cannot scale to new larger astronomy datasets.
-We propose two extensions to the extreme deconvolution method based on an online variation of the EM algorithm, and direct optimisation of the log-likelihood via minibatch gradient descent, both of which can make use of GPU computation.
+The Extreme Deconvolution method fits a probability density to a dataset where every observation has Gaussian noise added with a known sample-specific covariance, originally intended for use with astronomical datasets.
+% The existing method of fitting the model cannot scale to new larger astronomy datasets. % -- too strong. Probably feasible, and compute only gets cheaper
+The existing fitting method is batch EM, which wouldn't normally be applied to large datasets such as the Gaia catalog, which contains noisy observations of a billion stars.
+We propose two minibatch variants of extreme deconvolution, based on an online variation of the EM algorithm, and direct gradient-based optimisation of the log-likelihood, both of which can run on GPUs.
 We demonstrate that these methods provide faster fitting of the model, whilst being able to scale to much larger datasets.
 
 \end{abstract}
 
 \section{Introduction}
 
-Extreme deconvolution is a method that fits Gaussian Mixture Models (GMM)s to noisy data where we know the covariance of the Gaussian noise added to each sample~\cite{bovyExtremeDeconvolutionInferring2011}.
+Extreme deconvolution is a method that fits Gaussian Mixture Models (GMMs) to noisy data where we know the covariance of the Gaussian noise added to each sample~\cite{bovyExtremeDeconvolutionInferring2011}.
 The method was originally developed to perform probabilistic density estimation on the dataset of stellar velocities produced by the Hipparcos satellite~\cite{perrymanHipparcosCatalogue1997}.
 The Hipparcos catalogue consists of astrometric solutions (positions and velocities on the sky) and photometry (light intensity) for 118,218 stars, with associated noise covariances provided for each entry.
 
 The successor to the Hipparcos mission, Gaia, aims to produce an even larger catalogue, with entries for an estimated 1 billion astronomical objects~\cite{collaborationGaiaMission2016}.
-Previous work using an extreme deconvolution model on the Gaia catalogue had to work with a subset of the data, as the existing method of fitting the models cannot work with very large datasets \cite{andersonImprovingGaiaParallax2018}.
-It must make a full pass over the dataset before it can update parameters, and the reference implementation requires all the data to fit in memory.
+Previous work using an extreme deconvolution model on the Gaia catalogue %had to
+worked with a subset of the data,
+%as the existing method of fitting the models cannot work with very large datasets % -- I don't think the reference says this part?
+but the intention is to fit models with the full dataset
+\cite{andersonImprovingGaiaParallax2018}.
+The existing extreme deconvolution algorithm makes a full pass over the dataset before it can update parameters, and the reference implementation requires all the data to fit in memory. To fit such large datasets in reasonable time, we would normally use stochastic or online methods, with updates based on minibatches of data to make the methods practical on GPUs \cite{bottou2018}.
 
-In this work, we propose two new methods for fitting the extreme deconvolution model that can scale to the full dataset size, based on an online variation of the Expectation-Maximisation (EM) algorithm, and minibatch gradient descent on the log-likelihood.
-We develop implementations that can leverage GPU-based computation, and show that they provide comparable density estimates to the existing method, whilst being much faster to train.
+In this work, we develop two minibatch methods for fitting the extreme deconvolution model
+%that can scale to the full dataset size, % -- not demonstrated here?
+based on 1) an online variation of the Expectation-Maximisation (EM) algorithm, and 2) a gradient optimizer.
+Our implementations can run on GPUs, and provide comparable density estimates to the existing method, whilst being much faster to train.
 
 \section{Background}
 
@@ -122,7 +129,7 @@ r_{ij} = \frac{\alpha_j \mathcal{M}(\bx_i \mid R_i\bm_j, T_{ij})}{\sum_k \alpha_
 \bb_{ij} = m_j + V_j R_i^T T_{ij}^{-1}(\bx_i - R_i \bm_j), \ 
 B_{ij} = V_j - V_j R_i^T T_{ij}^{-1}R_iV_j.
 \end{equation}
-The $r_{ij}$ term is just the posterior probability of datapoint $\bx_i$ coming from component $j$.
+The $r_{ij}$ term is the posterior probability of datapoint $\bx_i$ coming from component $j$.
 The $\bb_{ij}$ and $B_{ij}$ terms result from the fact that $\bx_i$ and $\bv_i$ are jointly Gaussian, so the distribution of $\bv_i$ conditioned on $\bx_i$ is also Gaussian with mean $\bb_{ij}$ and covariance $B_{ij}$.
 The expected sufficient statistics are then summed together over the minibatch,
 \begin{equation}
@@ -139,17 +146,22 @@ Finally, we normalise the updated sums of expected sufficient statistics to get 
 \alpha_j = \frac{\hat{\phi}_j^1}{M}, \quad
 \bm_j = \frac{\hat{\phi}_j^2}{\hat{\phi}_j^1}, \quad
 V_j = \frac{\hat{\phi}_j^3}{\hat{\phi}_j^1} - \bm_j \bm_j^T.
+\label{eqn:mstep}
 \end{equation}
-This procedure is repeated with new randomly ordered minibatches until convergence.
-If we set $\lambda=1$, replace each minibatch with the entire dataset and factorise the update for $V_j$ then we recover the original fitting method.
-The update for $V_j$ could result in catastrophic cancellation if the variances of the components are small relative to the means, especially if single precision floats are used, as is standard with GPU computation.
-In Appendix~\ref{apx:variance-rewrite} we show how this update can be rewritten in a symbolically equivalent but more numerically stable form.
+This procedure is repeated with new randomly-ordered minibatches until convergence.
+If we set $\lambda=1$ and replace each minibatch with the entire dataset,
+% and factorise the update for $V_j$ -- % unclear to someone new?
+then the update corresponds to the original batch fitting method.
+Numerically however, the update for $V_j$, as written in \eqref{eqn:mstep}, is inadvisable compared to the batch update given in \cite{bovyExtremeDeconvolutionInferring2011}. There is likely to be catastrophic cancellation if the variances of the components are small relative to the means, especially if single precision floats are used, as is standard with GPU computation.
+In Appendix~\ref{apx:variance-rewrite} we show how the minibatch version of this update can be rewritten in a
+% symbolically equivalent but
+more numerically stable form.
 
 
 \subsection{Stochastic Gradient Descent}
 
 An alternative to EM-based methods is to optimise the log-likelihood directly.
-The log-likelihood has some constraints on its parameters, namely that the weight $a_j$ sum to $1$ and that the covariances $V_j$ are positive definite.
+The log-likelihood has some constraints on its parameters, namely that the mixture weights $a_j$ are positive and sum to $1$ and that the covariances $V_j$ are positive definite.
 Directly fitting it with standard gradient-based optimisers requires a transformation of the parameters to remove the constraints.
 The mixture weights $\alpha_j$ can be parameterised by taking the softmax of an unconstrained vector $\mathbf{z}$, and the covariances $V_j$ as a lower triangular matrix $L_j$ via the Cholesky decomposition, where the diagonal elements $qq$ of $L_j$ are constrained positive by taking the exponential of the unconstrained element $\tilde{L}_q$,
 \begin{equation}
@@ -157,26 +169,29 @@ The mixture weights $\alpha_j$ can be parameterised by taking the softmax of an 
 V_j = L_jL_j^T, \quad
 (L_j)_{qq} = \exp({\tilde{L}_q}).
 \end{equation}
-Note that for a standard GMM we could bypass forming the covariance altogether and evaluate the log PDF of the Normal distribution directly with the Cholesky factor.
-For the extreme deconvolution model, this cannot be done, as we need to form the covariance $Tij$ for every datapoint.
-Having removed the constraints, we can then take the gradient of the log-likelihood with respect to the parameters and optimise it using a standard minibatch-based optimiser.
+Having removed the constraints, we optimise the likelihood using any standard minibatch gradient-based optimiser.
+
+For a standard Gaussian mixture model, gradient based optimization has a scaling advantage over EM\@. There is no need to form the $D\!\times\!D$ covariance matrix $V_j$, since the Gaussian density can be evaluated directly from the Cholesky factor $L_j$ in $O(D^2)$, whereas an EM update is $O(D^3)$.
+Unfortunately SGD updates are also $O(D^3)$ for the extreme deconvolution model, as we need to form the covariance $T_{ij}$ for each datapoint.
 
 \section{Experiments}
 
-We implemented both of our methods in PyTorch, and compared against the reference implementation from \citet{bovyExtremeDeconvolutionInferring2011}.
+We implemented both minibatch approaches in PyTorch, and compared against the reference implementation from \citet{bovyExtremeDeconvolutionInferring2011}.
 To evaluate each method, we used a random sample of rows from the Gaia DR2 source table~\cite{brownGaiaDataRelease2018}.
 We selected the 5 primary astrometric features, along with the BP-RP colour and mean magnitude in the G-band.
 In total there were 2 million rows.
 Where data were missing, we set the field to zero and the noise variance to a large value.
 We set the projection $R_i$ to the identity matrix for every sample.
-This is only a small fraction of the full dataset size, but this allows us to fit the training data into memory, a requirement for use with the original implementation of extreme deconvolution.
+This preliminary study uses only a small fraction of the full dataset size, but this allows us to fit the training data into memory, a requirement for use with the original implementation of extreme deconvolution.
 We used a range of mixture component sizes $K$.
 In practice we would want to select a value of $K$ by cross-validation.
 
-Initialisation of all models was performed by first running a minibatch version of the K-means clustering algorithm on the dataset to get estimates of the weights and means \cite{sculleyWebscaleKmeansClustering2010}.
+Initialisation of all models was performed by first running a minibatch version of the $K$-means clustering algorithm on the dataset to get estimates of the weights and means \cite{sculleyWebscaleKmeansClustering2010}.
 Initial covariances were set to the identity matrix.
+% TODO -- is data standardized?
 Training was done for 20 epochs.
-The existing EM method ran on CPU, whilst the minibatch EM and SGD methods ran on GPU.
+The existing EM method ran on CPU, whilst the minibatch EM and SGD methods ran on GPU\@.
+While the absolute times depend strongly on hardware and fine implementation details, they give a sense of the sort of times possible on current workstations, and the relative times across model sizes illustrate how the methods scale.
 We used a validation set comprising $10\%$ of the rows when developing our experiments.
 Final model performance was evaluated on a different held-out test set also comprising 10\% of the rows at the last stage, with no parameter selection or development done based on this value.
 Table~\ref{results-table} reports the validation and test log-likelihoods for each method along with average training time.
