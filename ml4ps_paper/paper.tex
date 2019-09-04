@@ -116,9 +116,9 @@ Missing data can be handled either by making $R_i$ rank-deficient, or by setting
 
 The original method of fitting the extreme deconvolution model used a modification of the Expectation-Maximisation (EM) algorithm for mixture models~\cite{dempsterMaximumLikelihoodIncomplete1977}.
 Here we describe a minibatch version of this algorithm based on~\citet{cappeOnlineExpectationMaximization2009}'s online EM algorithm for latent data models.
-At each iteration $t$, we compute the sufficient statistics of the latent data $\bv_i$ for each component $j$ in the minibatch of size N, using our current estimate of the parameters,
+At each iteration $t$, we compute the sufficient statistics of the latent data $\bv_i$ for each component $j$ in the minibatch of size $M$, using our current estimate of the parameters,
 \begin{equation}
-r_{ij} = \frac{\alpha_j \mathcal{N}(\bx_i \mid R_i\bm_j, T_{ij})}{\sum_k \alpha_k \mathcal{N}(\bx_i \mid R_i\bm_k, T_{ik})}, \ 
+r_{ij} = \frac{\alpha_j \mathcal{M}(\bx_i \mid R_i\bm_j, T_{ij})}{\sum_k \alpha_k \mathcal{N}(\bx_i \mid R_i\bm_k, T_{ik})}, \ 
 \bb_{ij} = m_j + V_j R_i^T T_{ij}^{-1}(\bx_i - R_i \bm_j), \ 
 B_{ij} = V_j - V_j R_i^T T_{ij}^{-1}R_iV_j.
 \end{equation}
@@ -136,7 +136,7 @@ Stochastic estimates $\hat{\phi}_{tj} $ of the sums of sufficient statistics ove
 \end{equation}
 Finally, we normalise the updated sums of expected sufficient statistics to get updated estimates of the parameters.
 \begin{equation}
-\alpha_j = \frac{\hat{\phi}_j^1}{N}, \quad
+\alpha_j = \frac{\hat{\phi}_j^1}{M}, \quad
 \bm_j = \frac{\hat{\phi}_j^2}{\hat{\phi}_j^1}, \quad
 V_j = \frac{\hat{\phi}_j^3}{\hat{\phi}_j^1} - \bm_j \bm_j^T.
 \end{equation}
@@ -170,17 +170,20 @@ In total there were 2 million rows.
 Where data were missing, we set the field to zero and the noise variance to a large value.
 We set the projection $R_i$ to the identity matrix for every sample.
 This is only a small fraction of the full dataset size, but this allows us to fit the training data into memory, a requirement for use with the original implementation of extreme deconvolution.
-We used the same number of components $K=256$ for each model.
+We used a range of mixture component sizes $K$.
 In practice we would want to select a value of $K$ by cross-validation.
 
 Initialisation of all models was performed by first running a minibatch version of the K-means clustering algorithm on the dataset to get estimates of the weights and means \cite{sculleyWebscaleKmeansClustering2010}.
 Initial covariances were set to the identity matrix.
 Training was done for 20 epochs.
+The existing EM method ran on CPU, whilst the minibatch EM and SGD methods ran on GPU.
 We used a validation set comprising $10\%$ of the rows when developing our experiments.
 Final model performance was evaluated on a different held-out test set also comprising 10\% of the rows at the last stage, with no parameter selection or development done based on this value.
-Table~\ref{results-table} reports the validation and test log-likelihoods for each method.
+Table~\ref{results-table} reports the validation and test log-likelihoods for each method along with average training time.
+Figure~\ref{fig:training} plots the training log-likelihood against time-rescaled epoch for $K=256$ and training time as function of mixture components $K$.
+Figure~\ref{fig:projection} shows a 2-D projection from an example model with $K=256$ fitted with the minibatch-EM method.
 
-\begin{table}
+\begin{table}{}
   \caption{Average validation and test log-likelihoods with average training time for the Gaia data subset for different numbers of mixture components $K$.  Average over 5 runs with standard deviation.}
   \label{results-table}
   \centering
@@ -207,19 +210,21 @@ Table~\ref{results-table} reports the validation and test log-likelihoods for ea
   \centering
   \includegraphics{learning.pdf}
   \caption{\textbf{Left}: Average training log-likelihood as a function of training epoch for models with $K=256$. Epochs rescaled by average training time. Error bars not visible. \textbf{Right}: Training time as a function of mixture components $K$. Error bars indicate $\pm$ 2 standard deviations.}
+  \label{fig:training}
 \end{figure}
 
 \begin{figure}
   \centering
   \includegraphics{density.pdf}
   \caption{Density plot showing a 2-D projection of 100000 samples drawn from a model with $K=256$ and fitted with the minibatch EM method.
-  The plot shows the estimated density of star positions on the sky, and has correctly recovered the structure of the Milky Way.}
+  The plot shows the estimated density of star positions on the sky, and has correctly recovered the structure of the Milky Way and the Magellanic Clouds.}
+  \label{fig:projection}
 \end{figure}
 
 \section{Discussion}
 
 Our results have shown that both of our proposed methods perform comparably to the existing method of fitting extreme deconvolution models, whilst being able to work with datasets that cannot fit in memory.
-The results also show that using GPU-based computation speeds up training considerably.
+The results also show that using GPU-based computation speeds up training considerably as mixture component size $K$ increases.
 
 Further improvements to our approaches are possible.
 The original paper presents a method of getting out of local maxima by splitting and merging clusters, with the split-merge criteria evaluated on the whole dataset.
@@ -227,15 +232,11 @@ It should be possible to replace the criteria with stochastic estimates, which w
 Our approaches also add more free parameters to be selected, including learning rate and batch size.
 This adds scope for hyperparameter optimisation to improve the log-likelihood, potentially making use of Bayesian optimisation.
 
-The question remains of which of our two methods should be used for any particular problem?
-As the results show, the SGD method is faster than the minibatch EM method, at a cost of having a slightly worse log-likelihood.
-The minibatch EM method performed better, but during training would occasionally terminate early as a result of an update forming an invalid covariance matrix, necessitating a restart.
-(This issue also exists with the implementation of the existing method).
+The question remains of which method should be used for any particular problem?
+The existing EM method had comparable log-likelihoods for smaller sizes of $K$, and did marginally better for the largest size, but at the cost of a much longer training time.
+The SGD method is faster than the minibatch EM method, especially as $K$ increases, at a cost of having a slightly worse log-likelihood.
 The answer will therefore depend on exactly what dataset we wish to perform density estimation on, and how accurate an estimation we require.
-In practice, we would suggest using the minibatch EM if the size of the dataset was small enough to permit several restarts, whilst an extremely large dataset would probably be better fitted with the SGD method.
-
-\todo{Add discussion of complexity}
-\todo{Add discussion of projections $R_{ij}$}
+In practice we would suggest using the minibatch EM method for relatively smaller datasets, and the SGD method on larger datasets.
 
 \bibliography{references}
 
