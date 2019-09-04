@@ -188,14 +188,17 @@ Table~\ref{results-table} reports the validation and test log-likelihoods for ea
     \toprule
     Method     & K &  Validation     & Test & Time (minutes) \\
     \midrule
-    Existing EM  & 128 & $-25.95 \pm 0.04$  & - & $101.1 \pm 2.19$    \\
-    (\citet{bovyExtremeDeconvolutionInferring2011}) & 256 & $-25.76 \pm 0.02$ & - & $195.3 \pm 4.08$ \\
+    Existing EM                                     & 64  & $-26.12 \pm 0.03$ & - & $60.0 \pm 7.9$\\
+    (\citet{bovyExtremeDeconvolutionInferring2011}) & 128 & $-25.95 \pm 0.04$  & - & $101.1 \pm 2.19$    \\
+                                                    & 256 & $-25.76 \pm 0.02$ & - & $195.3 \pm 4.08$ \\
     \midrule
-    Minibatch EM & 128 & $-25.92 \pm 0.01$ & - & $44.5 \pm 1.0$      \\
-    & 256 & $-25.83 \pm 0.003$ & - & $51.6 \pm 3.0$ \\
+    Minibatch EM  & 64  & $-26.04 \pm 0.01$   & - & $26.8 \pm 1.71$ \\
+                  & 128 & $-25.92 \pm 0.01$   & - & $44.5 \pm 1.0$      \\
+                  & 256 & $-25.83 \pm 0.003$  & - & $51.6 \pm 3.0$ \\
     \midrule
-    SGD  & 128  & $-25.94 \pm 0.01$ & - & $34.0 \pm 0.83$ \\
-    & 256 &$-25.84 \pm 0.01$ & - & $36.6 \pm 1.3$ \\
+    SGD & 64    & $-26.10 \pm 0.02$  & - &$23.5 \pm 2.34$ \\
+        & 128   & $-25.94 \pm 0.01$  & - & $34.0 \pm 0.83$ \\
+        & 256   & $-25.84 \pm 0.01$  & - & $36.6 \pm 1.3$ \\
     \bottomrule
   \end{tabular}
 \end{table}
