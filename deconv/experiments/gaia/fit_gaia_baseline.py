@@ -33,7 +33,7 @@ def fit_gaia_baseline(datafile, output_prefix, K, epochs, w_reg,
 
     weights = (counts / counts.sum()).numpy()
     means = centroids.numpy()
-    covars = np.array(128 * [np.eye(7)])
+    covars = np.array(K * [np.eye(7)])
 
     ll = extreme_deconvolution(
         data['X_train'],
