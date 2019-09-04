@@ -26,7 +26,7 @@ j = torch.distributions.Categorical(
 
 X = X[np.arange(N), j, :]
 
-fig, ax = plt.subplots(figsize=(3, 2))
+fig, ax = plt.subplots(figsize=(4, 2))
 
 figure = corner.hist2d(X[:, 0], X[:, 1], bins=100)
 
