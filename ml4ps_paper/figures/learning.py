@@ -26,8 +26,6 @@ baseline_curves = np.array([
     ) and f.endswith('loglike.log')
 ])
 
-print(baseline_curves)
-
 for l, result in zip(labels, table.values()):
     if l != 'Existing EM':
         x = np.arange(20) * (result[256][1].mean() / 20)
@@ -57,6 +55,6 @@ axes[1].set_ylim(-1, 201)
 
 fig.tight_layout()
 
-fig.savefig('learning.pdf')
+fig.savefig('figures/learning.pdf')
 
 plt.show()

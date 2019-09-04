@@ -41,6 +41,6 @@ ax.set_ylabel(r'Declination ($\circ$)')
 
 fig.tight_layout()
 
-fig.savefig('density.pdf')
+fig.savefig('figures/density.pdf')
 
 plt.show()
