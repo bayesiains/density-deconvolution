@@ -5,14 +5,14 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
 import seaborn as sns
 
-from results_table import produce_table
+from results_table import get_table
 
 sns.set()
 sns.set_context('paper')
 
 fig, axes = plt.subplots(1, 2, figsize=(6, 2)) 
 
-table = produce_table('../results/')
+table = get_table('../results/')
 
 axes[0].set_xlabel('Time-scaled Epoch')
 axes[0].set_ylabel('Avg. Log-likelihood')
@@ -26,18 +26,13 @@ baseline_curves = np.array([
     ) and f.endswith('loglike.log')
 ])
 
-# axins = inset_axes(
-#     axes[0], width='40%', height='40%', loc='lower right', borderpad=2
-# )
-
 for l, result in zip(labels, table.values()):
     if l != 'Existing EM':
-        x = np.arange(20) * (result[256][1].mean() / 20)
+        x = np.arange(1, 21) * (result[256][1].mean() / 20)
         y = result[256][2].mean(axis=0)
         y_err = 1.96 * result[256][2].std(axis=0)
-
     else:
-        x = np.arange(20) * (result[256][1].mean() / 20)
+        x = np.arange(1, 21) * (result[256][1].mean() / 20)
         y = baseline_curves.mean(axis=0)
         y_err = 1.96 * baseline_curves.std(axis=0)
 
@@ -48,7 +43,7 @@ axes[0].set_xscale('log')
 axes[0].set_ylim(-28, -25)
 
 
-k = np.array([64, 128, 256])
+k = np.array([64, 128, 256, 512])
 
 axes[1].set_xlabel(r'Mixture Components $K$')
 axes[1].set_ylabel(r'Time (minutes)')
@@ -56,11 +51,10 @@ axes[1].set_xticks(k)
 
 for l, result in zip(labels, table.values()):
     t = np.array([[r[1].mean(), r[1].std()] for r in result.values()])
+    print(t.shape)
     axes[1].errorbar(k, t[:, 0], 1.96 * t[:, 1], label=l)
 
 axes[1].legend(loc='lower left', bbox_to_anchor=(1.01, 0))
-
-axes[1].set_ylim(-1, 201)
 
 fig.tight_layout()
 
