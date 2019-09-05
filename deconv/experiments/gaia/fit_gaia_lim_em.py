@@ -10,7 +10,7 @@ from deconv.gmm.sgd_deconv_gmm import SGDDeconvDataset
 
 
 def fit_gaia_lim_em(datafile, output_prefix, K, batch_size, epochs, step_size, w_reg,
-                    k_means_iters, use_cuda):
+                    k_means_iters, lr_step, lr_gamma, use_cuda):
     data = np.load(datafile)
 
     if use_cuda:
@@ -37,7 +37,9 @@ def fit_gaia_lim_em(datafile, output_prefix, K, batch_size, epochs, step_size, w
         w=w_reg,
         step_size=step_size,
         epochs=epochs,
-        k_means_iters=k_means_iters
+        k_means_iters=k_means_iters,
+        lr_step=lr_step,
+        lr_gamma=lr_gamma
     )
 
     start_time = time.time()
@@ -75,6 +77,8 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--step-size', type=float)
     parser.add_argument('-w', '--w_reg', type=float)
     parser.add_argument('-k', '--k-means-iters', type=int)
+    parser.add_argument('--lr-step', type=int)
+    parser.add_argument('--lr-gamma', type=float)
     parser.add_argument('--use-cuda', action='store_true', help='Use GPU')
     parser.add_argument('datafile')
     parser.add_argument('output_prefix')
@@ -91,5 +95,7 @@ if __name__ == '__main__':
         args.step_size,
         args.w_reg,
         args.k_means_iters,
+        args.lr_step,
+        args.lr_gamma,
         args.use_cuda
     )

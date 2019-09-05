@@ -10,7 +10,8 @@ class OnlineDeconvGMM(DeconvGMM):
     def __init__(self, components, dimensions, epochs=1000, w=1e-6,
                  tol=1e-6, step_size=0.1, batch_size=100, restarts=5,
                  max_no_improvement=20, k_means_factor=100,
-                 k_means_iters=10, device=None):
+                 k_means_iters=10, lr_step=10, lr_gamma=0.1,
+                 device=None):
         super().__init__(components, dimensions, epochs=epochs, w=w, tol=tol,
                          restarts=restarts, device=device)
         self.batch_size = batch_size
@@ -18,6 +19,8 @@ class OnlineDeconvGMM(DeconvGMM):
         self.max_no_improvement = max_no_improvement
         self.k_means_factor = k_means_factor
         self.k_means_iters = k_means_iters
+        self.lr_step = lr_step
+        self.lr_gamma = lr_gamma
 
     def _init_sum_stats(self, loader, n):
 
@@ -93,6 +96,9 @@ class OnlineDeconvGMM(DeconvGMM):
                 if val_data:
                     val_ll = self.score_batch(val_data)
                     val_ll_curve.append(val_ll)
+
+                if (i + 1) % self.lr_step == 0:
+                    self.step_size *= self.lr_gamma
 
                 if verbose and i % interval == 0:
                     if val_data:
