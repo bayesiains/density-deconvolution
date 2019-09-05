@@ -14,3 +14,6 @@ conda activate deconv
 export PYTHONPATH=${PYTHONPATH}:${HOME}/original_xd/py/
 
 python deconv/experiments/gaia/fit_gaia_baseline.py -c 64 -e 20 -w=0.001 -k 10 data/gaia_sample_mag.npz results/baseline_64_${SLURM_JOBID}
+python deconv/experiments/gaia/fit_gaia_baseline.py -c 128 -e 20 -w=0.001 -k 10 data/gaia_sample_mag.npz results/baseline_128_${SLURM_JOBID}
+python deconv/experiments/gaia/fit_gaia_baseline.py -c 256 -e 20 -w=0.001 -k 10 data/gaia_sample_mag.npz results/baseline_256_${SLURM_JOBID}
+python deconv/experiments/gaia/fit_gaia_baseline.py -c 512 -e 20 -w=0.001 -k 10 data/gaia_sample_mag.npz results/baseline_512_${SLURM_JOBID}
