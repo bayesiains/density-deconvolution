@@ -11,4 +11,8 @@
 
 source ~/.bashrc
 conda activate deconv
+
 python deconv/experiments/gaia/fit_gaia_lim_sgd.py -c 64 -b 500 -e 20 -l 0.01 -w=0.001 -k 10 --lr-step 10 --lr-gamma 0.1 --use-cuda data/gaia_sample_mag.npz results/sgd_64_${SLURM_JOBID}
+python deconv/experiments/gaia/fit_gaia_lim_sgd.py -c 128 -b 500 -e 20 -l 0.01 -w=0.001 -k 10 --lr-step 10 --lr-gamma 0.1 --use-cuda data/gaia_sample_mag.npz results/sgd_128_${SLURM_JOBID}
+python deconv/experiments/gaia/fit_gaia_lim_sgd.py -c 256 -b 500 -e 20 -l 0.01 -w=0.001 -k 10 --lr-step 10 --lr-gamma 0.1 --use-cuda data/gaia_sample_mag.npz results/sgd_256_${SLURM_JOBID}
+python deconv/experiments/gaia/fit_gaia_lim_sgd.py -c 512 -b 500 -e 20 -l 0.01 -w=0.001 -k 10 --lr-step 10 --lr-gamma 0.1 --use-cuda data/gaia_sample_mag.npz results/sgd_512_${SLURM_JOBID}
