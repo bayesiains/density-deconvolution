@@ -41,8 +41,9 @@ def check_online_deconv_gmm(D, K, N, plot=False, device=None, verbose=False):
         batch_size=500,
         step_size=1e-1,
         restarts=1,
-        epochs=200,
+        epochs=20,
         k_means_iters=20,
+        lr_step=10,
         w=1e-3
     )
     gmm.fit(train_data, val_data=test_data, verbose=verbose)
