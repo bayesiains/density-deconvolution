@@ -91,9 +91,9 @@ class BaseSGDGMM(ABC):
             params=self.module.parameters(),
             lr=self.lr
         )
-        self.scheduler = torch.optim.lr_scheduler.StepLR(
+        self.scheduler = torch.optim.lr_scheduler.MultiStepLR(
             self.optimiser,
-            step_size=lr_step,
+            milestones=[lr_step, lr_step + 5],
             gamma=lr_gamma
         )
 
