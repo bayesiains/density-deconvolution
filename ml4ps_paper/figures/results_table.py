@@ -13,7 +13,8 @@ MODELS = [
 SIZES = [
     64,
     128,
-    256
+    256,
+    512
 ]
 
 def get_results(files, model, size, file_dir):
@@ -24,7 +25,7 @@ def get_results(files, model, size, file_dir):
     ]
 
 
-def produce_table(results_dir):
+def get_table(results_dir):
 
     results_files = os.listdir(str(results_dir))
 
@@ -49,16 +50,40 @@ def produce_table(results_dir):
 
             table[model][size] = (scores, times, curve)
 
-            print('{} {}: {:.2f} +- {:.2f}, {:.1f} +- {:.2f}'.format(
-                model,
-                size,
-                scores.mean(),
-                scores.std(),
-                times.mean(),
-                times.std()
-            ))
-
     return table
+
+def print_table(table):
+
+    print(r'\toprule')
+    print(r'Method     & K &  Validation     & Test & Time (minutes) \\')
+
+    labels = (
+        'Existing EM',
+        'Minibatch EM',
+        'SGD'
+    )
+
+    for l, m in zip(labels, table.values()):
+        print(r'\midrule')
+        for i, (k, r) in enumerate(m.items()):
+
+            s = ' & {} & ${:.2f} \pm {:.2f}$ & - & ${:.2f} \pm {:.2f}$ \\\\'.format(
+                k,
+                r[0].mean(),
+                r[0].std(),
+                r[1].mean(),
+                r[1].std()
+            )
+
+            if i == 0:
+                s = l + s
+            if i == 1 and l == 'Existing EM':
+                s = r'\citet{bovyExtremeDeconvolutionInferring2011}' + s
+            print(s)
+
+
+    print(r'\bottomrule')
+
 
 
 if __name__ == '__main__':
@@ -66,6 +91,5 @@ if __name__ == '__main__':
     parser.add_argument('results_dir')
     args = parser.parse_args()
 
-    print(args)
+    print_table(get_table(args.results_dir))
 
-    produce_table(args.results_dir)
