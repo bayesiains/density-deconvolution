@@ -202,19 +202,18 @@ class OnlineDeconvGMM(DeconvGMM):
         self.sum_cond_means = (1 - step_size) * self.sum_cond_means + step_size * sum_cond_means
         self.means = self.sum_cond_means / self.sum_resps
 
-        shrunk_covar = (1 - step_size) * self._adjust(
+        self.covars = (1 - step_size) * self._adjust(
             self.covars - self.w,
             sum_resps_old / self.sum_resps,
             m_old,
             self.means
-        )
-        new_covar = step_size * self._adjust(
+        ) + step_size * self._adjust(
             batch_covars,
             sum_resps / self.sum_resps,
             batch_means,
             self.means
-        )
-        self.covars = shrunk_covar + new_covar + self.w
+        ) + self.w
+
         self.weights = self.sum_resps / self.batch_size
 
     def score_batch(self, dataset):
