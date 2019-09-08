@@ -201,27 +201,27 @@ Figure~\ref{fig:training} plots the training log-likelihood against time-rescale
 Figure~\ref{fig:projection} shows a 2-D projection from an example model with $K=256$ fitted with the minibatch-EM method.
 
 \begin{table}{}
-  \caption{Average validation and test log-likelihoods with average training time for the Gaia data subset for different numbers of mixture components $K$.  Average over 5 runs with standard deviation.}
+  \caption{Average validation and test log-likelihoods with average training time for the Gaia data subset for different numbers of mixture components $K$.  Average over 10 runs with standard deviation.}
   \label{results-table}
   \centering
   \begin{tabular}{lcccc}
       \toprule
       Method     & K &  Validation     & Test & Time (minutes) \\
       \midrule
-      Existing EM & 64 & $-26.12 \pm 0.03$ & - & $59.98 \pm 7.88$ \\
-      \citet{bovyExtremeDeconvolutionInferring2011} & 128 & $-25.95 \pm 0.04$ & - & $101.12 \pm 2.19$ \\
-       & 256 & $-25.76 \pm 0.02$ & - & $195.29 \pm 4.08$ \\
-       & 512 & $-25.67 \pm 0.01$ & - & $382.73 \pm 7.70$ \\
+      Existing EM & 64 & $-26.10 \pm 0.03$ & - & $55.53 \pm 7.17$ \\
+      \citet{bovyExtremeDeconvolutionInferring2011} & 128 & $-25.96 \pm 0.04$ & - & $100.30 \pm 1.96$ \\
+       & 256 & $-25.76 \pm 0.02$ & - & $195.45 \pm 3.93$ \\
+       & 512 & $-25.67 \pm 0.01$ & - & $385.60 \pm 8.24$ \\
       \midrule
-      Minibatch EM & 64 & $-26.04 \pm 0.01$ & - & $26.75 \pm 1.71$ \\
-       & 128 & $-25.92 \pm 0.01$ & - & $44.52 \pm 0.98$ \\
-       & 256 & $-25.84 \pm 0.00$ & - & $51.58 \pm 2.98$ \\
-       & 512 & $-25.81 \pm 0.00$ & - & $95.95 \pm 5.28$ \\
+      Minibatch EM & 64 & $-26.05 \pm 0.01$ & - & $30.98 \pm 0.51$ \\
+       & 128 & $-25.91 \pm 0.01$ & - & $47.01 \pm 0.67$ \\
+       & 256 & $-25.83 \pm 0.00$ & - & $55.18 \pm 2.89$ \\
+       & 512 & $-25.80 \pm 0.00$ & - & $100.47 \pm 3.89$ \\
       \midrule
-      SGD & 64 & $-26.10 \pm 0.02$ & - & $23.54 \pm 2.34$ \\
-       & 128 & $-25.94 \pm 0.01$ & - & $33.96 \pm 0.83$ \\
-       & 256 & $-25.84 \pm 0.01$ & - & $36.64 \pm 1.32$ \\
-       & 512 & $-25.77 \pm 0.01$ & - & $60.79 \pm 3.37$ \\
+      SGD & 64 & $-25.89 \pm 0.02$ & - & $28.02 \pm 0.77$ \\
+       & 128 & $-25.77 \pm 0.02$ & - & $36.44 \pm 0.44$ \\
+       & 256 & $-25.67 \pm 0.02$ & - & $40.54 \pm 1.48$ \\
+       & 512 & $-25.59 \pm 0.02$ & - & $64.77 \pm 2.91$ \\
       \bottomrule
   \end{tabular}
 \end{table}
