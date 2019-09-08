@@ -44,7 +44,7 @@ class SGDGMMModule(nn.Module):
 
     @property
     def covars(self):
-        return torch.matmul(self.L, torch.transpose(self.L, -2, -1)) + self.w
+        return torch.matmul(self.L, torch.transpose(self.L, -2, -1))
 
     def forward(self, data):
 
@@ -105,7 +105,13 @@ class BaseSGDGMM(ABC):
     def covars(self):
         return self.module.covars.detach()
 
+    def reg_loss(self, n, n_total):
+        l = (n / n_total) * self.w / torch.diagonal(self.module.covars, dim1=-1, dim2=-2)
+        return l.sum()
+
     def fit(self, data, val_data=None, verbose=False, interval=1):
+
+        n_total = len(data)
 
         init_loader = data_utils.DataLoader(
             data,
@@ -148,10 +154,13 @@ class BaseSGDGMM(ABC):
                     self.optimiser.zero_grad()
 
                     loss = self.module(d)
+                    train_loss += loss.item()
+
+                    n = d[0].shape[0]
+                    loss += self.reg_loss(n, n_total)
+
                     loss.backward()
                     self.optimiser.step()
-
-                    train_loss += loss.item()
 
                 train_loss_curve.append(train_loss)
 
