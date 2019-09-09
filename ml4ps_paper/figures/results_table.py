@@ -55,7 +55,7 @@ def get_table(results_dir):
 def print_table(table):
 
     print(r'\toprule')
-    print(r'Method     & K &  Validation     & Test & Time (minutes) \\')
+    print(r'Method     & K &  Validation     & Test\\')
 
     labels = (
         'Existing EM',
@@ -67,12 +67,10 @@ def print_table(table):
         print(r'\midrule')
         for i, (k, r) in enumerate(m.items()):
 
-            s = ' & {} & ${:.2f} \pm {:.2f}$ & - & ${:.2f} \pm {:.2f}$ \\\\'.format(
+            s = ' & {} & ${:.2f} \pm {:.2f}$ & - \\\\'.format(
                 k,
                 r[0].mean(),
-                r[0].std(),
-                r[1].mean(),
-                r[1].std()
+                r[0].std()
             )
 
             if i == 0:

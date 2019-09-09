@@ -197,32 +197,32 @@ While the absolute times depend strongly on hardware and fine implementation det
 We used a validation set comprising $10\%$ of the rows when developing our experiments.
 Final model performance was evaluated on a different held-out test set also comprising 10\% of the rows at the last stage, with no parameter selection or development done based on this value.
 Details required for reproducibility are provided in Appendix~\ref{apx:repro}.
-Table~\ref{results-table} reports the validation and test log-likelihoods for each method along with average training time.
+Table~\ref{results-table} reports the validation and test log-likelihoods for each method.
 Figure~\ref{fig:training} plots the training log-likelihood against time-rescaled epoch for $K=256$ and training time as function of mixture components $K$.
 Figure~\ref{fig:projection} shows a 2-D projection from an example model with $K=256$ fitted with the minibatch-EM method.
 
 \begin{table}{}
-  \caption{Average validation and test log-likelihoods with average training time for the Gaia data subset for different numbers of mixture components $K$.  Average over 10 runs with standard deviation.}
+  \caption{Average validation log-likelihoods for the Gaia data subset for different numbers of mixture components $K$, with average test log-likelihood for the best value of $K$ by validation. Average over 10 runs with standard deviation.}
   \label{results-table}
   \centering
   \begin{tabular}{lcccc}
       \toprule
-      Method     & K &  Validation     & Test & Time (minutes) \\
+      Method     & K &  Validation     & Test\\
       \midrule
-      Existing EM & 64 & $-26.10 \pm 0.03$ & - & $55.53 \pm 7.17$ \\
-      \citet{bovyExtremeDeconvolutionInferring2011} & 128 & $-25.96 \pm 0.04$ & - & $100.30 \pm 1.96$ \\
-       & 256 & $-25.76 \pm 0.02$ & - & $195.45 \pm 3.93$ \\
-       & 512 & $-25.67 \pm 0.01$ & - & $385.60 \pm 8.24$ \\
+      Existing EM & 64 & $-26.10 \pm 0.03$ & - \\
+      \citet{bovyExtremeDeconvolutionInferring2011} & 128 & $-25.96 \pm 0.04$ & - \\
+       & 256 & $-25.76 \pm 0.02$ & - \\
+       & 512 & $-25.67 \pm 0.01$ & - \\
       \midrule
-      Minibatch EM & 64 & $-26.05 \pm 0.01$ & - & $30.98 \pm 0.51$ \\
-       & 128 & $-25.91 \pm 0.01$ & - & $47.01 \pm 0.67$ \\
-       & 256 & $-25.83 \pm 0.00$ & - & $55.18 \pm 2.89$ \\
-       & 512 & $-25.80 \pm 0.00$ & - & $100.47 \pm 3.89$ \\
+      Minibatch EM & 64 & $-26.05 \pm 0.01$ & - \\
+       & 128 & $-25.91 \pm 0.01$ & - \\
+       & 256 & $-25.83 \pm 0.00$ & - \\
+       & 512 & $-25.80 \pm 0.00$ & - \\
       \midrule
-      SGD & 64 & $-25.89 \pm 0.02$ & - & $28.02 \pm 0.77$ \\
-       & 128 & $-25.77 \pm 0.02$ & - & $36.44 \pm 0.44$ \\
-       & 256 & $-25.67 \pm 0.02$ & - & $40.54 \pm 1.48$ \\
-       & 512 & $-25.59 \pm 0.02$ & - & $64.77 \pm 2.91$ \\
+      SGD & 64 & $-25.89 \pm 0.02$ & - \\
+       & 128 & $-25.77 \pm 0.02$ & - \\
+       & 256 & $-25.67 \pm 0.02$ & - \\
+       & 512 & $-25.59 \pm 0.02$ & - \\
       \bottomrule
   \end{tabular}
 \end{table}
