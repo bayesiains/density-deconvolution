@@ -26,7 +26,9 @@ baseline_curves = np.array([
     ) and f.endswith('loglike.log')
 ])
 
-for l, result in zip(labels, table.values()):
+linestyles = ('-', '--', '-.')
+
+for l, ls, result in zip(labels, linestyles, table.values()):
     if l != 'Existing EM':
         x = np.arange(1, 21) * (result[256][1].mean() / 20)
         y = result[256][2].mean(axis=0)
@@ -36,7 +38,7 @@ for l, result in zip(labels, table.values()):
         y = baseline_curves.mean(axis=0)
         y_err = 1.96 * baseline_curves.std(axis=0)
 
-    axes[0].plot(x, y)
+    axes[0].plot(x, y, linestyle=ls)
     axes[0].fill_between(x, y + y_err, y - y_err, alpha=0.5)
 
 axes[0].set_xscale('log')
@@ -49,10 +51,10 @@ axes[1].set_xlabel(r'Mixture Components $K$')
 axes[1].set_ylabel(r'Time (minutes)')
 axes[1].set_xticks(k)
 
-for l, result in zip(labels, table.values()):
+for l, ls, result in zip(labels, linestyles, table.values()):
     t = np.array([[r[1].mean(), r[1].std()] for r in result.values()])
     print(t.shape)
-    axes[1].errorbar(k, t[:, 0], 1.96 * t[:, 1], label=l)
+    axes[1].errorbar(k, t[:, 0], 1.96 * t[:, 1], label=l, linestyle=ls)
 
 axes[1].legend(loc='lower left', bbox_to_anchor=(1.01, 0))
 axes[1].set_ylim(-1, 430)

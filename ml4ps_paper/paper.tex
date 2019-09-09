@@ -41,6 +41,8 @@
 \newcommand{\bb}{\mathbf{b}}
 \newcommand{\bc}{\mathbf{c}}
 \newcommand{\bd}{\mathbf{d}}
+\newcommand{\bs}{\mathbf{s}}
+
 
 \newcommand{\todo}[1]{\textcolor{red}{TODO: #1}}
 
@@ -90,7 +92,7 @@ The Hipparcos catalogue consists of astrometric solutions (positions and velocit
 
 The successor to the Hipparcos mission, Gaia, aims to produce an even larger catalogue, with entries for an estimated 1 billion astronomical objects~\cite{collaborationGaiaMission2016}.
 Previous work using an extreme deconvolution model on the Gaia catalogue %had to
-worked with a subset of the data,
+worked with a subset of the data and restricted the number of mixture components,
 %as the existing method of fitting the models cannot work with very large datasets % -- I don't think the reference says this part?
 but the intention is to fit models with the full dataset
 \cite{andersonImprovingGaiaParallax2018}.
@@ -122,12 +124,12 @@ Missing data can be handled either by making $R_i$ rank-deficient, or by setting
 \section{Methods}
 
 \subsection{Minibatch Expectation-Maximisation}
-
+\label{sec:minibatch-em}
 The original method of fitting the extreme deconvolution model used a modification of the Expectation-Maximisation (EM) algorithm for mixture models~\cite{dempsterMaximumLikelihoodIncomplete1977}.
 Here we describe a minibatch version of this algorithm based on~\citet{cappeOnlineExpectationMaximization2009}'s online EM algorithm for latent data models.
 At each iteration $t$, we compute the sufficient statistics of the latent data $\bv_i$ for each component $j$ in the minibatch of size $M$, using our current estimate of the parameters,
 \begin{equation}
-r_{ij} = \frac{\alpha_j \mathcal{M}(\bx_i \mid R_i\bm_j, T_{ij})}{\sum_k \alpha_k \mathcal{N}(\bx_i \mid R_i\bm_k, T_{ik})}, \ 
+r_{ij} = \frac{\alpha_{j} \mathcal{M}(\bx_i \mid R_i\bm_j, T_{ij})}{\sum_k \alpha_k \mathcal{N}(\bx_i \mid R_i\bm_k, T_{ik})}, \ 
 \bb_{ij} = m_j + V_j R_i^T T_{ij}^{-1}(\bx_i - R_i \bm_j), \ 
 B_{ij} = V_j - V_j R_i^T T_{ij}^{-1}R_iV_j.
 \end{equation}
@@ -135,19 +137,21 @@ The $r_{ij}$ term is the posterior probability of datapoint $\bx_i$ coming from 
 The $\bb_{ij}$ and $B_{ij}$ terms result from the fact that $\bx_i$ and $\bv_i$ are jointly Gaussian, so the distribution of $\bv_i$ conditioned on $\bx_i$ is also Gaussian with mean $\bb_{ij}$ and covariance $B_{ij}$.
 The expected sufficient statistics are then summed together over the minibatch,
 \begin{equation}
-\phi_j^1 = \sum_i r_{ij}, \quad
-\phi_j^2 = \sum_i r_{ij} \bb_{ij}, \quad
-\phi_j^3 = \sum_i r_{ij} [\bb_{ij}\bb_{ij}^T + B_{ij}].
+q_{jt} = \sum_i r_{ijt}, \quad
+\bs_{jt} = \sum_i r_{ijt} \bb_{ijt}, \quad
+S_{jt} = \sum_i r_{ijt} [\bb_{ijt}\bb_{ijt}^T + B_{ijt}].
 \end{equation}
-Stochastic estimates $\hat{\phi}_{tj} $ of the sums of sufficient statistics over the whole dataset are then updated with a sufficiently small step size $\lambda$,
+Stochastic estimates $\hat{\phi}_{jt} $ of the sums of sufficient statistics over the whole dataset are then updated with a sufficiently small step size $\lambda$,
 \begin{equation}
-\hat{\phi}_{tj} = (1 - \lambda)\hat{\phi}_{(t-1)j} + \lambda \phi_{tj}.
+\hat{\phi}_{jt} = (1 - \lambda)\hat{\phi}_{j(t-1)} + \lambda \phi_{jt},\quad
+\phi_{jt} = \{q_{jt}, \bs_{jt}, S_{jt} \},\quad
+\hat{\phi}_{jt} = \{\hat{q}_{jt}, \hat{\bs}_{jt}, \hat{S}_{jt} \}. \label{eq:sums}
 \end{equation}
-Finally, we normalise the updated sums of expected sufficient statistics to get updated estimates of the parameters.
+Finally, we normalise the updated sums of expected sufficient statistics to get updated estimates of the parameters,
 \begin{equation}
-\alpha_j = \frac{\hat{\phi}_j^1}{M}, \quad
-\bm_j = \frac{\hat{\phi}_j^2}{\hat{\phi}_j^1}, \quad
-V_j = \frac{\hat{\phi}_j^3}{\hat{\phi}_j^1} - \bm_j \bm_j^T.
+\alpha_{j} = \frac{\hat{q}_{jt}}{M}, \quad
+\bm_{j} = \frac{\hat{\bs}_{jt}}{\hat{q}_{jt}}, \quad
+V_{j} = \frac{\hat{S}_{jt}}{\hat{q}_{jt}} - \bm_{j} \bm_{j}^T.
 \label{eqn:mstep}
 \end{equation}
 This procedure is repeated with new randomly-ordered minibatches until convergence.
@@ -171,12 +175,13 @@ The mixture weights $\alpha_j$ can be parameterised by taking the softmax of an 
 V_j = L_jL_j^T, \quad
 (L_j)_{qq} = \exp({\tilde{L}_q}).
 \end{equation}
-Having removed the constraints, we optimise the likelihood using any standard minibatch gradient-based optimiser.
+Having removed the constraints, we can optimise the likelihood using any standard minibatch gradient-based optimiser.
 
 For a standard Gaussian mixture model, gradient based optimization has a scaling advantage over EM\@. There is no need to form the $D\!\times\!D$ covariance matrix $V_j$, since the Gaussian density can be evaluated directly from the Cholesky factor $L_j$ in $O(D^2)$, whereas an EM update is $O(D^3)$.
 Unfortunately SGD updates are also $O(D^3)$ for the extreme deconvolution model, as we need to form the covariance $T_{ij}$ for each datapoint.
 
 \section{Experiments}
+\label{sec:experiments}
 
 We implemented both minibatch approaches in PyTorch, and compared against the reference implementation from \citet{bovyExtremeDeconvolutionInferring2011}.
 To evaluate each method, we used a random sample of rows from the Gaia DR2 source table~\cite{brownGaiaDataRelease2018}.
@@ -188,17 +193,15 @@ This preliminary study uses only a small fraction of the full dataset size, but 
 We used a range of mixture component sizes $K$.
 In practice we would want to select a value of $K$ by cross-validation.
 
-Initialisation of all models was performed by first running a minibatch version of the $K$-means clustering algorithm on the dataset to get estimates of the weights and means \cite{sculleyWebscaleKmeansClustering2010}.
-Initial covariances were set to the identity matrix.
-% TODO -- is data standardized?
-Training was done for 20 epochs.
 The existing EM method ran on CPU, whilst the minibatch EM and SGD methods ran on GPU\@.
 While the absolute times depend strongly on hardware and fine implementation details, they give a sense of the sort of times possible on current workstations, and the relative times across model sizes illustrate how the methods scale.
 We used a validation set comprising $10\%$ of the rows when developing our experiments.
 Final model performance was evaluated on a different held-out test set also comprising 10\% of the rows at the last stage, with no parameter selection or development done based on this value.
 Details required for reproducibility are provided in Appendix~\ref{apx:repro}.
+
 Table~\ref{results-table} reports the validation and test log-likelihoods for each method.
-Figure~\ref{fig:training} plots the training log-likelihood against time-rescaled epoch for $K=256$ and training time as function of mixture components $K$.
+The values are similar, but not exactly comparable, as the effect of regularisation differs for each method.
+Figure~\ref{fig:training} plots the training log-likelihood against time-rescaled epoch for $K=256$, and training time as function of mixture components $K$.
 Figure~\ref{fig:projection} shows a 2-D projection from an example model with $K=256$ fitted with the minibatch-EM method.
 
 \begin{table}{}
@@ -244,17 +247,17 @@ Figure~\ref{fig:projection} shows a 2-D projection from an example model with $K
 
 \section{Discussion}
 
-Our results have shown that both of our proposed methods perform comparably to the existing method of fitting extreme deconvolution models, whilst being able to work with datasets that cannot fit in memory.
-The results also show that using GPU-based computation speeds up training considerably as mixture component size $K$ increases.
+Our results have shown that both of our proposed methods perform comparably to the existing method of fitting extreme deconvolution models, whilst converging faster and being able to work with datasets that cannot fit in memory.
+The results also show that using GPU-based computation speeds up fitting considerably, allowing sublinear scaling of training time with mixture component size $K$.
 
 Further improvements to our approaches are possible.
 The original paper presents a method of getting out of local maxima by splitting and merging clusters, with the split-merge criteria evaluated on the whole dataset.
 It should be possible to replace the criteria with stochastic estimates, which would permit them to be used with both the SGD and minibatch EM methods.
 Our approaches also add more free parameters to be selected, including learning rate and batch size.
-This adds scope for hyperparameter optimisation to improve the log-likelihood, potentially making use of Bayesian optimisation.
+This adds scope for hyperparameter optimisation to improve the log-likelihood.
 
 The question remains of which method should be used for any particular problem?
-The SGD method provides marginally better log-likelihood values, is faster to train, and scales better with component size $K$.
+The SGD method provides comparable log-likelihood values, is faster to train, and scales better with component size $K$.
 In addition, we found it to be more numerically stable during training, making it the obvious choice.
 
 \bibliography{references}
@@ -264,11 +267,40 @@ In addition, we found it to be more numerically stable during training, making i
 \section{Stable Covariance Update}
 \label{apx:variance-rewrite}
 
+In Section~\ref{sec:minibatch-em} describing our minibatch-EM method, we noted that the M-step update for the variance of each component $V_j$ as presented in Equation~\ref{eqn:mstep} would be prone to catastrophic cancellation as a result of taking a small difference between large values using single-precision floats.
+Here we present an alternative update for $V_j$ that is less prone to numerical instability, and show that it is equivalent to Equation~\ref{eqn:mstep}.
+For clarity we drop the component indicator $j$ from the parameters, and add indicators $t$ and $t-1$ to distinguish between current and previous estimates of parameters.
+
+First, we define an adjustment operation,
+\begin{align}
+  \text{adjust}(V, s, \bc, \bd) &= sV + \frac{1}{2}(\bc - \bd)(\bc + \bd)^T + \frac{1}{2}(\bc + \bd)(\bc - \bd)^T  \label{eq:recentre1} \\
+  &= s(V + \bc\bc^T) - \bd\bd^T,\label{eq:recentre2}
+\end{align}
+which can be thought of as recentering a scaled variance around a new mean.
+Equation~\ref{eq:recentre1} is how we actually compute the adjustment, to minimise taking small differences between large values, whilst Equation~\ref{eq:recentre2} shows the identity we are interested in.
+
+In the M-step at iteration $t$ of our minibatch EM approach, we compute estimates of $\hat{q}_t$, $\alpha_t$ and $\bm_t$ as before using Equations~\ref{eq:sums} and~\ref{eqn:mstep}.
+We also compute minibatch-specific parameters using exact sums over the minibatch:
+\begin{equation}
+q_b = \sum_i^M r_i, \quad
+\bm_b = \frac{\sum_i^M r_i \bx_i}{q_b},\quad V_b = \frac{\sum_i^M r_i[(\bx_i - \bb_i)(\bx_i - \bb_i)^T  + B_i]}{q_b}
+\end{equation}{}
+We then compute our new estimate of the variance $V_t$ as a function of the previous estimates $\{\hat{q}_{t-1}, \bm_{t-1}, V_{t-1} \}$, the minibatch values $\{q_b, \bm_b, V_b\}$, and the current estimates $\{\hat{q}_t,\bm_t \}$:
+\begin{align}
+V_{t} &= (1 - \lambda)\,\text{adjust}(V_{t-1}, \frac{\hat{q}_{t-1}}{\hat{q}_t}, \bm_{t-1}, \bm_t) + \lambda\, \text{adjust}(V_{b}, \frac{q_b}{\hat{q}_t}, \bm_{b}, \bm_{t}) \label{eq:update-computed}\\
+&= (1 - \lambda) \left[\frac{\hat{q}_{t-1}}{\hat{q}_t} \left(V_{t-1} + \bm_{t-1}\bm_{t-1}^T \right) -\bm_t \bm_t^T \right] + \lambda\,\left[\frac{q_b}{\hat{q}_t} \left(V_{b} + \bm_{b}\bm_{b}^T \right) -\bm_t \bm_t^T \right] \\
+&= (1 - \lambda)\,\left[\frac{\hat{S}_{t-1}}{\hat{q}_t} -\bm_t \bm_t^T \right] + \lambda\, \left[\frac{S_t}{\hat{q}_t} -\bm_t \bm_t^T \right] \\
+&= \frac{(1- \lambda)\hat{S}_{t-1} + \lambda S_t}{\hat{q}_t} - \bm_t\bm_t^T \\
+&= \frac{\hat{S}_t}{\hat{q}_t} - \bm_t\bm_t^T \label{eq:update-equiv}
+\end{align}
+Again, Equation~\ref{eq:update-computed} is how we actually compute the update to minimise numerical errors, whilst Equation~\ref{eq:update-equiv} shows that the update is equivalent to the covariance update defined in Equation~\ref{eqn:mstep}.
+Whilst we found this update worked better in practice than a direct implementation, numerical instability is still possible if the standard deviations of the components are small enough relative to the means, and further work is needed to determine if a more stable update can be performed.
 
 \section{Experiment Details}
 \label{apx:repro}
 
 Here we provide specific details of our experiments for reproducibility.
+Code used to run the experiments will be made available.
 
 \subsection{Dataset}
 
@@ -289,6 +321,11 @@ Both minibatch methods used a batch size of $500$.
 For the minibatch-EM method, the step size $\lambda$ was set to $10^{-2}$.
 For the SGD method, we used the Adam optimiser with a learning of $10^{-2}$ for the first ten epochs, reducing by a factor of 10 for the last ten epochs, and all other parameters set to the suggested defaults~\cite{kingmaAdamMethodStochastic2014}.
 
-For numerical stability, a very small amount of regularisation was applied to the covariances $V_j$, following the scheme of the original publication using $W = wI$, where $w = 10^{-3}$ and $I$ is the identity matrix.
+For numerical stability, a very small amount of regularisation was applied to the covariances $V_j$.
+Using the original implementation, we set the regularisation constant $w = 10^{-3}$.
+For the minibatch-EM method, we added diagonal matrix $wI$ directly to each covariance matrix after updating them.
+For the SGD method, we added a penalty term $\sum_j \frac{w}{\mathrm{Trace}[V_j]}$ to the loss function.
+As noted in Section~\ref{sec:experiments}, the effect of $w$ is not comparable across methods.
+If we were using larger values of $w$ to prevent overfitting rather than just avoiding numerical instability, $w$ would be tuned specifically for each method.
 
 \end{document}
