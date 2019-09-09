@@ -55,6 +55,7 @@ for l, result in zip(labels, table.values()):
     axes[1].errorbar(k, t[:, 0], 1.96 * t[:, 1], label=l)
 
 axes[1].legend(loc='lower left', bbox_to_anchor=(1.01, 0))
+axes[1].set_ylim(-1, 430)
 
 fig.tight_layout()
 
