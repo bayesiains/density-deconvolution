@@ -50,7 +50,6 @@ def score_sgd(datafile, results_dir, output_file):
     json.dump(scores, open(output_file, 'w'))
 
 
-
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
@@ -61,4 +60,4 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    score_sgd(args.datafile, args.results_dir, arg.output_file)
+    score_sgd(args.datafile, args.results_dir, args.output_file)
