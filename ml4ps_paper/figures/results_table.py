@@ -48,7 +48,24 @@ def get_table(results_dir):
                 scores = scores * -1
                 curve = curve * -1
 
-            table[model][size] = (scores, times, curve)
+            if size == 512:
+                test_scores = np.array(json.load(
+                    open(results_dir + '{}_test_scores.json'.format(
+                        model
+                    ))
+                ))
+
+                if model != 'baseline':
+                    test_scores /= 200000
+
+                if model == 'sgd':
+                    test_scores *= -1
+
+                table[model][size] = (
+                    scores, times, curve, test_scores
+                )
+            else:
+                table[model][size] = (scores, times, curve)
 
     return table
 
@@ -67,11 +84,20 @@ def print_table(table):
         print(r'\midrule')
         for i, (k, r) in enumerate(m.items()):
 
-            s = ' & {} & ${:.2f} \pm {:.2f}$ & - \\\\'.format(
-                k,
-                r[0].mean(),
-                r[0].std()
-            )
+            if k == 512:
+                s = ' & {} & ${:.2f} \pm {:.2f}$ & ${:.2f} \pm {:.2f}$ \\\\'.format(
+                    k,
+                    r[0].mean(),
+                    r[0].std(),
+                    r[3].mean(),
+                    r[3].std()
+                )
+            else:
+                s = ' & {} & ${:.2f} \pm {:.2f}$ & - \\\\'.format(
+                    k,
+                    r[0].mean(),
+                    r[0].std()
+                )
 
             if i == 0:
                 s = l + s
