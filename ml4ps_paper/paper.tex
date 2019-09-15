@@ -28,6 +28,7 @@
 \usepackage{microtype}      % microtypography
 \usepackage{color}
 \usepackage{graphicx}
+\usepackage[autolanguage]{numprint}
 
 \setcitestyle{numbers}
 \setcitestyle{square}
@@ -76,11 +77,12 @@
 
 \begin{abstract}
 
-The Extreme Deconvolution method fits a probability density to a dataset where every observation has Gaussian noise added with a known sample-specific covariance, originally intended for use with astronomical datasets.
+The Extreme Deconvolution method fits a probability density to a dataset where each observation has Gaussian noise added with a known sample-specific covariance, originally intended for use with astronomical datasets.
 % The existing method of fitting the model cannot scale to new larger astronomy datasets. % -- too strong. Probably feasible, and compute only gets cheaper
 The existing fitting method is batch EM, which would not normally be applied to large datasets such as the Gaia catalog, which contains noisy observations of a billion stars.
 We propose two minibatch variants of extreme deconvolution, based on an online variation of the EM algorithm, and direct gradient-based optimisation of the log-likelihood, both of which can run on GPUs.
 We demonstrate that these methods provide faster fitting of the model, whilst being able to scale to much larger datasets.
+% TODO do we really want to end with scaling to much larger datasets? Not seeing test of scaling with N. And Bovy's code could be tweaked to accumulate updates without having everything in RAM? (And we can get EC2 machines with 1TB of RAM these days...) -- revist what contributions actually are. And if want to make other claims, plan future expts accordingly.
 
 \end{abstract}
 
@@ -111,12 +113,12 @@ The aim of extreme deconvolution is to perform density estimation on a noisy $d$
 \end{equation}
 We assume that $\bv_i$ can be modelled by a mixture of Gaussians with $K$ components,
 \begin{equation}
-p(\bv_i \mid \theta) = \sum_j^K \alpha_j \mathcal{N}(\bv \mid \bm_j, V_j), \quad \theta = \{\alpha_j, \bm_j, V_j\}_{j=1} ^ K
+p(\bv_i \mid \theta) = \sum_j^K \alpha_j \,\mathcal{N}(\bv \mid \bm_j, V_j), \quad \theta = \{\alpha_j, \bm_j, V_j\}_{j=1} ^ K.
 \end{equation}
-As both the noise model is Gaussian and the density estimation model is a mixture of Gaussians, the likelihood of $\bx_i$ is also a Gaussian mixture,
-and the total log-likehood of the dataset is
+Because the noise model is Gaussian and the model of the underlying density is a mixture of Gaussians, the probability of $\bx_i$ is also a Gaussian mixture.
+The total log-likehood of the model is
 \begin{equation}
-\mathcal{L}(\theta) = \sum_i^N \log \sum_j^K \alpha_j\mathcal{N}(\bx_i \mid R_i\bm_j, T_{ij}), \quad T_{ij} = R_iV_jR_i^T + S_i.
+\mathcal{L}(\theta) = \sum_i^N \log \sum_j^K \alpha_j\,\mathcal{N}(\bx_i \mid R_i\bm_j, T_{ij}), \quad T_{ij} = R_iV_jR_i^T + S_i.
 \end{equation}
 
 Missing data can be handled either by making $R_i$ rank-deficient, or by setting elements of the covariance matrix $S_i$ to very large values.
@@ -129,7 +131,7 @@ The original method of fitting the extreme deconvolution model used a modificati
 Here we describe a minibatch version of this algorithm based on~\citet{cappeOnlineExpectationMaximization2009}'s online EM algorithm for latent data models.
 At each iteration $t$, we compute the sufficient statistics of the latent data $\bv_i$ for each component $j$ in the minibatch of size $M$, using our current estimate of the parameters,
 \begin{equation}
-r_{ij} = \frac{\alpha_{j} \mathcal{M}(\bx_i \mid R_i\bm_j, T_{ij})}{\sum_k \alpha_k \mathcal{N}(\bx_i \mid R_i\bm_k, T_{ik})}, \ 
+r_{ij} = \frac{\alpha_{j} \,\mathcal{N}(\bx_i \mid R_i\bm_j, T_{ij})}{\sum_k \alpha_k \,\mathcal{N}(\bx_i \mid R_i\bm_k, T_{ik})}, \ 
 \bb_{ij} = m_j + V_j R_i^T T_{ij}^{-1}(\bx_i - R_i \bm_j), \ 
 B_{ij} = V_j - V_j R_i^T T_{ij}^{-1}R_iV_j.
 \end{equation}
@@ -167,15 +169,17 @@ more numerically stable form.
 \subsection{Stochastic Gradient Descent}
 
 An alternative to EM-based methods is to optimise the log-likelihood directly.
-The log-likelihood has some constraints on its parameters, namely that the mixture weights $a_j$ are positive and sum to $1$ and that the covariances $V_j$ are positive definite.
-Directly fitting it with standard gradient-based optimisers requires a transformation of the parameters to remove the constraints.
-The mixture weights $\alpha_j$ can be parameterised by taking the softmax of an unconstrained vector $\mathbf{z}$, and the covariances $V_j$ as a lower triangular matrix $L_j$ via the Cholesky decomposition, where the diagonal elements $qq$ of $L_j$ are constrained positive by taking the exponential of the unconstrained element $\tilde{L}_q$,
+The optimization is constrained, because the mixture weights $a_j$ are positive and sum to $1$, and the covariances $V_j$ are positive definite.
+Directly fitting the log-likelihood with unconstrained gradient-based optimisers requires a transformation of the parameters to remove the constraints.
+The mixture weights $\alpha_j$ can be parameterised by taking the softmax of an unconstrained vector $\mathbf{z}$, and the covariances $V_j$ represented by its lower triangular Cholesky decomposition $L_j$, where the diagonal elements $qq$ of $L_j$ are constrained positive by taking the exponential of unconstrained elements $\tilde{L}_q$,
 \begin{equation}
 \alpha_j = \frac{e^{z_j}}{\sum_{k=1}^K e^{z_k}}, \quad
 V_j = L_jL_j^T, \quad
 (L_j)_{qq} = \exp({\tilde{L}_q}).
 \end{equation}
 Having removed the constraints, we can optimise the likelihood using any standard minibatch gradient-based optimiser.
+% TODO we didn't invent this style of approach! Should find a citation or two where this sort
+% of thing is done.
 
 For a standard Gaussian mixture model, gradient based optimization has a scaling advantage over EM\@. There is no need to form the $D\!\times\!D$ covariance matrix $V_j$, since the Gaussian density can be evaluated directly from the Cholesky factor $L_j$ in $O(D^2)$, whereas an EM update is $O(D^3)$.
 Unfortunately SGD updates are also $O(D^3)$ for the extreme deconvolution model, as we need to form the covariance $T_{ij}$ for each datapoint.
@@ -196,7 +200,7 @@ In practice we would want to select a value of $K$ by cross-validation.
 The existing EM method ran on CPU, whilst the minibatch EM and SGD methods ran on GPU\@.
 While the absolute times depend strongly on hardware and fine implementation details, they give a sense of the sort of times possible on current workstations, and the relative times across model sizes illustrate how the methods scale.
 We used a validation set comprising $10\%$ of the rows when developing our experiments.
-Final model performance was evaluated on a different held-out test set also comprising 10\% of the rows at the last stage, with no parameter selection or development done based on this value.
+Final model performance was evaluated on a different held-out test set also comprising 10\% of the rows at the last stage, with no parameter selection or development done based on this set.
 Details required for reproducibility are provided in Appendix~\ref{apx:repro}.
 
 Table~\ref{results-table} reports the validation and test log-likelihoods for each method.
@@ -247,7 +251,9 @@ Figure~\ref{fig:projection} shows a 2-D projection from an example model with $K
 
 \section{Discussion}
 
-Our results have shown that both of our proposed methods perform comparably to the existing method of fitting extreme deconvolution models, whilst converging faster and being able to work with datasets that cannot fit in memory.
+Our results have shown that both of our proposed methods perform comparably to the existing method of fitting extreme deconvolution models, whilst converging faster.
+% and being able to work with datasets that cannot fit in memory.
+% TODO I commented out as just an implementation detail? Not seeing an actual test of batch (can be accumulated in chunks) vs minibatch opt.
 The results also show that using GPU-based computation speeds up fitting considerably, allowing sublinear scaling of training time with mixture component size $K$.
 
 Further improvements to our approaches are possible.
@@ -255,10 +261,11 @@ The original paper presents a method of getting out of local maxima by splitting
 It should be possible to replace the criteria with stochastic estimates, which would permit them to be used with both the SGD and minibatch EM methods.
 Our approaches also add more free parameters to be selected, including learning rate and batch size.
 This adds scope for hyperparameter optimisation to improve the log-likelihood.
+% TODO for longer/final version. Is split-merge actually worthwhile? Seems worth
+% doing quick pilot study to see if actually worth investigating further.
 
-The question remains of which method should be used for any particular problem?
-The SGD method provides comparable log-likelihood values, is faster to train, and scales better with component size $K$.
-In addition, we found it to be more numerically stable during training, making it the obvious choice.
+In this preliminary study the SGD method provided the best log-likelihood values, was faster to train, and scaled better with component size $K$.
+In addition, we found SGD to be more numerically stable than minibatch-EM during training.
 
 \bibliography{references}
 
@@ -305,13 +312,14 @@ Code used to run the experiments will be made available.
 \subsection{Dataset}
 
 From the Gaia DR2 source table we selected the columns \texttt{RA}, \texttt{DEC}, \texttt{PARALLAX}, \texttt{PMRA}, \texttt{PMDA}, \texttt{BP\_RP} and \texttt{PHOT\_G\_MEAN\_MAG} to assemble the observed dataset $\{\bx_i\}_{i=0}^N$~\cite{brownGaiaDataRelease2018}.
-Random subsampling was done by selecting rows with the value of the \texttt{RANDOM\_INDEX} column less than $2,000,000$.
+Random subsampling was done by selecting rows with the value of the \texttt{RANDOM\_INDEX} column less than $\numprint{2000000}$.
 Noise covariance matrices $S_i$ were assembled using the corresponding error and correlation columns for each variable.
 Where a column of a row was marked as missing, the corresponding element of $\bx_i$ was set to zero, the corresponding diagonal element of $S_i$ was set to $10^{12}$, and the corresponding off-diagonal elements set to zero.
 For columns which do not have associated noise, the corresponding diagonal elements of $S_i$ were set to a value of $10^{-2}$, and corresponding off-diagonal elements to zero.
 
 \subsection{Initialisation}
 For each method, initialisation of the means and weights was done using the estimated counts and centroids after 10 epochs of minibatch k-means clustering~\cite{sculleyWebscaleKmeansClustering2010}.
+% TODO cite scikit learn too if using their implementation?
 Covariances $V_j$ were set to the identity matrix.
 
 \subsection{Training}
