@@ -267,6 +267,19 @@ This adds scope for hyperparameter optimisation to improve the log-likelihood.
 In this preliminary study the SGD method provided the best log-likelihood values, was faster to train, and scaled better with component size $K$.
 In addition, we found SGD to be more numerically stable than minibatch-EM during training.
 
+% TODO again, always aim to question claims and have deep understanding. Is fast
+% to train per epoch and/or convergence? Could Adam be applied to the
+% minibatch-EM updates?
+% z = (1-\lambda) z + \lambda z'
+%   = z - \lambda (z - z')
+% interpret (z-z') as a gradient?
+%
+% Do we understand why the scaling with K is better. Implementation detail that
+% might change, or some matrix operation that's intrinsically more annoying?
+%
+% Would be nice to pin down numerical issues further. Although could decide not
+% worth it, if it wouldn't be better even if infinite precision were free.
+
 \bibliography{references}
 
 \appendix
