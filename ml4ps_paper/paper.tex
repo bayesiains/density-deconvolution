@@ -44,11 +44,6 @@
 \newcommand{\bd}{\mathbf{d}}
 \newcommand{\bs}{\mathbf{s}}
 
-
-\newcommand{\todo}[1]{\textcolor{red}{TODO: #1}}
-
-
-
 \title{Scalable Extreme Deconvolution}
 
 % The \author macro works with any number of authors. There are two commands
@@ -81,8 +76,9 @@ The Extreme Deconvolution method fits a probability density to a dataset where e
 % The existing method of fitting the model cannot scale to new larger astronomy datasets. % -- too strong. Probably feasible, and compute only gets cheaper
 The existing fitting method is batch EM, which would not normally be applied to large datasets such as the Gaia catalog, which contains noisy observations of a billion stars.
 We propose two minibatch variants of extreme deconvolution, based on an online variation of the EM algorithm, and direct gradient-based optimisation of the log-likelihood, both of which can run on GPUs.
-We demonstrate that these methods provide faster fitting of the model, whilst being able to scale to much larger datasets.
+We demonstrate that these methods provide faster fitting, whilst being able to scale to much larger models for use with larger datasets.
 % TODO do we really want to end with scaling to much larger datasets? Not seeing test of scaling with N. And Bovy's code could be tweaked to accumulate updates without having everything in RAM? (And we can get EC2 machines with 1TB of RAM these days...) -- revist what contributions actually are. And if want to make other claims, plan future expts accordingly.
+% Something like larger modesl required for larger datasets.
 
 \end{abstract}
 
@@ -170,7 +166,7 @@ more numerically stable form.
 
 An alternative to EM-based methods is to optimise the log-likelihood directly.
 The optimization is constrained, because the mixture weights $a_j$ are positive and sum to $1$, and the covariances $V_j$ are positive definite.
-Directly fitting the log-likelihood with unconstrained gradient-based optimisers requires a transformation of the parameters to remove the constraints.
+Directly fitting the log-likelihood with unconstrained gradient-based optimisers requires a transformation of the parameters to remove the constraints~\cite{williams1996}.
 The mixture weights $\alpha_j$ can be parameterised by taking the softmax of an unconstrained vector $\mathbf{z}$, and the covariances $V_j$ represented by its lower triangular Cholesky decomposition $L_j$, where the diagonal elements $qq$ of $L_j$ are constrained positive by taking the exponential of unconstrained elements $\tilde{L}_q$,
 \begin{equation}
 \alpha_j = \frac{e^{z_j}}{\sum_{k=1}^K e^{z_k}}, \quad
@@ -178,8 +174,6 @@ V_j = L_jL_j^T, \quad
 (L_j)_{qq} = \exp({\tilde{L}_q}).
 \end{equation}
 Having removed the constraints, we can optimise the likelihood using any standard minibatch gradient-based optimiser.
-% TODO we didn't invent this style of approach! Should find a citation or two where this sort
-% of thing is done.
 
 For a standard Gaussian mixture model, gradient based optimization has a scaling advantage over EM\@. There is no need to form the $D\!\times\!D$ covariance matrix $V_j$, since the Gaussian density can be evaluated directly from the Cholesky factor $L_j$ in $O(D^2)$, whereas an EM update is $O(D^3)$.
 Unfortunately SGD updates are also $O(D^3)$ for the extreme deconvolution model, as we need to form the covariance $T_{ij}$ for each datapoint.
@@ -252,20 +246,17 @@ Figure~\ref{fig:projection} shows a 2-D projection from an example model with $K
 \section{Discussion}
 
 Our results have shown that both of our proposed methods perform comparably to the existing method of fitting extreme deconvolution models, whilst converging faster.
-% and being able to work with datasets that cannot fit in memory.
-% TODO I commented out as just an implementation detail? Not seeing an actual test of batch (can be accumulated in chunks) vs minibatch opt.
-The results also show that using GPU-based computation speeds up fitting considerably, allowing sublinear scaling of training time with mixture component size $K$.
+The results also show that using GPU-based computation speeds up fitting considerably, allowing sublinear scaling of training time with mixture component size $K$. 
 
 Further improvements to our approaches are possible.
 The original paper presents a method of getting out of local maxima by splitting and merging clusters, with the split-merge criteria evaluated on the whole dataset.
 It should be possible to replace the criteria with stochastic estimates, which would permit them to be used with both the SGD and minibatch EM methods.
 Our approaches also add more free parameters to be selected, including learning rate and batch size.
 This adds scope for hyperparameter optimisation to improve the log-likelihood.
-% TODO for longer/final version. Is split-merge actually worthwhile? Seems worth
-% doing quick pilot study to see if actually worth investigating further.
 
 In this preliminary study the SGD method provided the best log-likelihood values, was faster to train, and scaled better with component size $K$.
 In addition, we found SGD to be more numerically stable than minibatch-EM during training.
+Further investigation is required to establish exactly why the minibatch-EM method suffers from numerical instability, and whether this method can be tuned to match the performance of the SGD method.
 
 % TODO again, always aim to question claims and have deep understanding. Is fast
 % to train per epoch and/or convergence? Could Adam be applied to the
@@ -332,14 +323,13 @@ For columns which do not have associated noise, the corresponding diagonal eleme
 
 \subsection{Initialisation}
 For each method, initialisation of the means and weights was done using the estimated counts and centroids after 10 epochs of minibatch k-means clustering~\cite{sculleyWebscaleKmeansClustering2010}.
-% TODO cite scikit learn too if using their implementation?
 Covariances $V_j$ were set to the identity matrix.
 
 \subsection{Training}
 
 All methods were trained for a total of twenty epochs.
 Both minibatch methods used a batch size of $500$.
-For the minibatch-EM method, the step size $\lambda$ was set to $10^{-2}$.
+For the minibatch-EM method, the step size $\lambda$ was started at $10^{-2}$ and reduced by a factor of two after ten epochs.
 For the SGD method, we used the Adam optimiser with a learning of $10^{-2}$ for the first ten epochs, reducing by a factor of 10 for the last ten epochs, and all other parameters set to the suggested defaults~\cite{kingmaAdamMethodStochastic2014}.
 
 For numerical stability, a very small amount of regularisation was applied to the covariances $V_j$.
