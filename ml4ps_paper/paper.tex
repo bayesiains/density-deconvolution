@@ -74,7 +74,7 @@
 
 The Extreme Deconvolution method fits a probability density to a dataset where each observation has Gaussian noise added with a known sample-specific covariance, originally intended for use with astronomical datasets.
 % The existing method of fitting the model cannot scale to new larger astronomy datasets. % -- too strong. Probably feasible, and compute only gets cheaper
-The existing fitting method is batch EM, which would not normally be applied to large datasets such as the Gaia catalog, which contains noisy observations of a billion stars.
+The existing fitting method is batch EM, which would not normally be applied to large datasets such as the Gaia catalog containing noisy observations of a billion stars.
 We propose two minibatch variants of extreme deconvolution, based on an online variation of the EM algorithm, and direct gradient-based optimisation of the log-likelihood, both of which can run on GPUs.
 We demonstrate that these methods provide faster fitting, whilst being able to scale to much larger models for use with larger datasets.
 % TODO do we really want to end with scaling to much larger datasets? Not seeing test of scaling with N. And Bovy's code could be tweaked to accumulate updates without having everything in RAM? (And we can get EC2 machines with 1TB of RAM these days...) -- revist what contributions actually are. And if want to make other claims, plan future expts accordingly.
@@ -111,7 +111,7 @@ We assume that $\bv_i$ can be modelled by a mixture of Gaussians with $K$ compon
 \begin{equation}
 p(\bv_i \mid \theta) = \sum_j^K \alpha_j \,\mathcal{N}(\bv \mid \bm_j, V_j), \quad \theta = \{\alpha_j, \bm_j, V_j\}_{j=1} ^ K.
 \end{equation}
-Because the noise model is Gaussian and the model of the underlying density is a mixture of Gaussians, the probability of $\bx_i$ is also a Gaussian mixture.
+As the noise model is Gaussian and the model of the underlying density is a mixture of Gaussians, the probability of $\bx_i$ is also a Gaussian mixture.
 The total log-likehood of the model is
 \begin{equation}
 \mathcal{L}(\theta) = \sum_i^N \log \sum_j^K \alpha_j\,\mathcal{N}(\bx_i \mid R_i\bm_j, T_{ij}), \quad T_{ij} = R_iV_jR_i^T + S_i.
@@ -256,7 +256,7 @@ This adds scope for hyperparameter optimisation to improve the log-likelihood.
 
 In this preliminary study the SGD method provided the best log-likelihood values, was faster to train, and scaled better with component size $K$.
 In addition, we found SGD to be more numerically stable than minibatch-EM during training.
-Further investigation is required to establish exactly why the minibatch-EM method suffers from numerical instability, and whether this method can be tuned to match the performance of the SGD method.
+Both minibatch methods will allow us to fit larger models going forwards.
 
 % TODO again, always aim to question claims and have deep understanding. Is fast
 % to train per epoch and/or convergence? Could Adam be applied to the
@@ -330,7 +330,7 @@ Covariances $V_j$ were set to the identity matrix.
 All methods were trained for a total of twenty epochs.
 Both minibatch methods used a batch size of $500$.
 For the minibatch-EM method, the step size $\lambda$ was started at $10^{-2}$ and reduced by a factor of two after ten epochs.
-For the SGD method, we used the Adam optimiser with a learning of $10^{-2}$ for the first ten epochs, reducing by a factor of 10 for the last ten epochs, and all other parameters set to the suggested defaults~\cite{kingmaAdamMethodStochastic2014}.
+For the SGD method, we used the Adam optimiser with a learning of $10^{-2}$ for the first ten epochs, reducing by a factor of ten for the last ten epochs, and all other parameters set to the suggested defaults~\cite{kingmaAdamMethodStochastic2014}.
 
 For numerical stability, a very small amount of regularisation was applied to the covariances $V_j$.
 Using the original implementation, we set the regularisation constant $w = 10^{-3}$.
