@@ -1,1 +1,55 @@
+%!TEX root = ../aistats_paper.tex
 \section{Methods}
+
+\subsection{Minibatch Expectation-Maximisation}
+\label{sec:minibatch-em}
+The original method of fitting the extreme deconvolution model used a modification of the Expectation-Maximisation (EM) algorithm for mixture models~\cite{dempsterMaximumLikelihoodIncomplete1977}.
+Here we describe a minibatch version of this algorithm based on~\citet{cappeOnlineExpectationMaximization2009}'s online EM algorithm for latent data models.
+At each iteration $t$, we compute the sufficient statistics of the latent data $\bv_i$ for each component $j$ in the minibatch of size $M$, using our current estimate of the parameters,
+\begin{align}
+r_{ij} &= \frac{\alpha_{j} \,\mathcal{N}(\bx_i \mid R_i\bm_j, T_{ij})}{\sum_k \alpha_k \,\mathcal{N}(\bx_i \mid R_i\bm_k, T_{ik})}, \\ 
+\bb_{ij} &= m_j + V_j R_i^T T_{ij}^{-1}(\bx_i - R_i \bm_j), \\
+B_{ij} &= V_j - V_j R_i^T T_{ij}^{-1}R_iV_j.
+\end{align}
+The $r_{ij}$ term is the posterior probability of datapoint $\bx_i$ coming from component $j$.
+The $\bb_{ij}$ and $B_{ij}$ terms result from the fact that $\bx_i$ and $\bv_i$ are jointly Gaussian, so the distribution of $\bv_i$ conditioned on $\bx_i$ is also Gaussian with mean $\bb_{ij}$ and covariance $B_{ij}$.
+The expected sufficient statistics are then summed together over the minibatch,
+\begin{align}
+q_{jt} &= \sum_i r_{ijt}, \\
+\bs_{jt} &= \sum_i r_{ijt} \bb_{ijt}, \\
+S_{jt} &= \sum_i r_{ijt} [\bb_{ijt}\bb_{ijt}^T + B_{ijt}].
+\end{align}
+Stochastic estimates $\hat{\phi}_{jt} $ of the sums of sufficient statistics over the whole dataset are then updated with a sufficiently small step size $\lambda$,
+\begin{align}
+\hat{\phi}_{jt} &= (1 - \lambda)\hat{\phi}_{j(t-1)} + \lambda \phi_{jt},\\
+\phi_{jt} &= \{q_{jt}, \bs_{jt}, S_{jt} \},\\
+\hat{\phi}_{jt} &= \{\hat{q}_{jt}, \hat{\bs}_{jt}, \hat{S}_{jt} \}. \label{eq:sums}
+\end{align}
+Finally, we normalise the updated sums of expected sufficient statistics to get updated estimates of the parameters,
+\begin{align}
+\alpha_{j} &= \frac{\hat{q}_{jt}}{M}, \\
+\bm_{j} &= \frac{\hat{\bs}_{jt}}{\hat{q}_{jt}}, \\
+V_{j} &= \frac{\hat{S}_{jt}}{\hat{q}_{jt}} - \bm_{j} \bm_{j}^T.
+\label{eqn:mstep}
+\end{align}
+This procedure is repeated with new randomly-ordered minibatches until convergence.
+If we set $\lambda=1$ and replace each minibatch with the entire dataset,
+% and factorise the update for $V_j$ -- % unclear to someone new?
+then the update corresponds to the original batch fitting method.
+Numerically however, the update for $V_j$, as written in \eqref{eqn:mstep}, is inadvisable compared to the batch update given in \cite{bovyExtremeDeconvolutionInferring2011}. There is likely to be catastrophic cancellation if the variances of the components are small relative to the means, especially if single precision floats are used, as is standard with GPU computation.
+
+\subsection{Stochastic Gradient Descent}
+
+An alternative to EM-based methods is to optimise the log-likelihood directly.
+The optimization is constrained, because the mixture weights $a_j$ are positive and sum to $1$, and the covariances $V_j$ are positive definite.
+Directly fitting the log-likelihood with unconstrained gradient-based optimisers requires a transformation of the parameters to remove the constraints~\cite{williams1996}.
+The mixture weights $\alpha_j$ can be parameterised by taking the softmax of an unconstrained vector $\mathbf{z}$, and the covariances $V_j$ represented by its lower triangular Cholesky decomposition $L_j$, where the diagonal elements $qq$ of $L_j$ are constrained positive by taking the exponential of unconstrained elements $\tilde{L}_q$,
+\begin{align}
+\alpha_j &= \frac{e^{z_j}}{\sum_{k=1}^K e^{z_k}}, \\
+V_j &= L_jL_j^T, \\
+(L_j)_{qq} &= \exp({\tilde{L}_q}).
+\end{align}
+Having removed the constraints, we can optimise the likelihood using any standard minibatch gradient-based optimiser.
+
+For a standard Gaussian mixture model, gradient based optimization has a scaling advantage over EM\@. There is no need to form the $D\!\times\!D$ covariance matrix $V_j$, since the Gaussian density can be evaluated directly from the Cholesky factor $L_j$ in $O(D^2)$, whereas an EM update is $O(D^3)$.
+Unfortunately SGD updates are also $O(D^3)$ for the extreme deconvolution model, as we need to form the covariance $T_{ij}$ for each datapoint.

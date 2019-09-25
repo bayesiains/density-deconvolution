@@ -1,1 +1,15 @@
+%!TEX root = ../aistats_paper.tex
 \section{Discussion}
+
+Our results have shown that both of our proposed methods perform comparably to the existing method of fitting extreme deconvolution models, whilst converging faster.
+The results also show that using GPU-based computation speeds up fitting considerably, allowing sublinear scaling of training time with mixture component size $K$. 
+
+Further improvements to our approaches are possible.
+The original paper presents a method of getting out of local maxima by splitting and merging clusters, with the split-merge criteria evaluated on the whole dataset.
+It should be possible to replace the criteria with stochastic estimates, which would permit them to be used with both the SGD and minibatch EM methods.
+Our approaches also add more free parameters to be selected, including learning rate and batch size.
+This adds scope for hyperparameter optimisation to improve the log-likelihood.
+
+In this preliminary study the SGD method provided the best log-likelihood values, was faster to train, and scaled better with component size $K$.
+In addition, we found SGD to be more numerically stable than minibatch-EM during training.
+Both minibatch methods will allow us to fit larger models going forwards.
