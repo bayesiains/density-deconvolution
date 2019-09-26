@@ -3,19 +3,36 @@
 \label{sec:experiments}
 
 We implemented both minibatch approaches in PyTorch, and compared against the reference implementation from \citet{bovyExtremeDeconvolutionInferring2011}.
-To evaluate each method, we used a random sample of rows from the Gaia DR2 source table~\cite{brownGaiaDataRelease2018}.
+Initial experiements were conducted using synthetic data sampled from a known mixture of Gaussians.
+
+
+\subsection{Synthetic Data}
+
+\todo{Description of synthetic setup}
+
+\todo{Table of NLL results?}
+
+\todo{Plot: Example 2D solution}
+
+\todo{Plot: Obvious local maxima}
+
+\todo{Plot: Denegenerate minibatch EM solution}
+
+\subsection{Gaia Catalogue}
+
+To evaluate each method with a real application, we used a random sample of rows from the Gaia DR2 source table~\citep{brownGaiaDataRelease2018}.
 We selected the 5 primary astrometric features, along with the BP-RP colour and mean magnitude in the G-band.
 In total there were 2 million rows.
 Where data were missing, we set the field to zero and the noise variance to a large value.
 We set the projection $R_i$ to the identity matrix for every sample.
 This preliminary study uses only a small fraction of the full dataset size, but this allows us to fit the training data into memory, a requirement for use with the original implementation of extreme deconvolution.
-We used a range of mixture component sizes $K$.
-In practice we would want to select a value of $K$ by cross-validation.
 
 The existing EM method ran on CPU, whilst the minibatch EM and SGD methods ran on GPU\@.
 While the absolute times depend strongly on hardware and fine implementation details, they give a sense of the sort of times possible on current workstations, and the relative times across model sizes illustrate how the methods scale.
 We used a validation set comprising $10\%$ of the rows when developing our experiments.
 Final model performance was evaluated on a different held-out test set also comprising 10\% of the rows at the last stage, with no parameter selection or development done based on this set.
+
+\subsubsection{Variable K}
 
 Table~\ref{results-table} reports the validation and test log-likelihoods for each method.
 The values are similar, but not exactly comparable, as the effect of regularisation differs for each method.
@@ -62,3 +79,5 @@ Figure~\ref{fig:projection} shows a 2-D projection from an example model with $K
   The plot shows the estimated density of star positions on the sky, and has correctly recovered the structure of the Milky Way and the Magellanic Clouds.}
   \label{fig:projection}
 \end{figure*}
+
+\subsubsection{Variable N}
