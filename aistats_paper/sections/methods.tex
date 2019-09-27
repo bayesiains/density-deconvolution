@@ -11,6 +11,7 @@ r_{ij} &= \frac{\alpha_{j} \,\mathcal{N}(\bx_i \mid R_i\bm_j, T_{ij})}{\sum_k \a
 \bb_{ij} &= m_j + V_j R_i^T T_{ij}^{-1}(\bx_i - R_i \bm_j), \\
 B_{ij} &= V_j - V_j R_i^T T_{ij}^{-1}R_iV_j.
 \end{align}
+\todo{Expand out where $\bb_{ij}$ and $B_{ij}$ come from, possibly in background?.}
 The $r_{ij}$ term is the posterior probability of datapoint $\bx_i$ coming from component $j$.
 The $\bb_{ij}$ and $B_{ij}$ terms result from the fact that $\bx_i$ and $\bv_i$ are jointly Gaussian, so the distribution of $\bv_i$ conditioned on $\bx_i$ is also Gaussian with mean $\bb_{ij}$ and covariance $B_{ij}$.
 The expected sufficient statistics are then summed together over the minibatch,
@@ -65,11 +66,15 @@ We then compute our new estimate of the variance $V_t$ as a function of the prev
 V_{t} &= (1 - \lambda)\,\text{adjust}(V_{t-1}, \frac{\hat{q}_{t-1}}{\hat{q}_t}, \bm_{t-1}, \bm_t) \\
 &+ \lambda\, \text{adjust}(V_{b}, \frac{q_b}{\hat{q}_t}, \bm_{b}, \bm_{t}) \label{eq:update-computed}
 \end{split} \\
-&= (1 - \lambda) \left[\frac{\hat{q}_{t-1}}{\hat{q}_t} \left(V_{t-1} + \bm_{t-1}\bm_{t-1}^T \right) -\bm_t \bm_t^T \right] + \lambda\,\left[\frac{q_b}{\hat{q}_t} \left(V_{b} + \bm_{b}\bm_{b}^T \right) -\bm_t \bm_t^T \right] \\
+\begin{split}
+&= (1 - \lambda) \left[\frac{\hat{q}_{t-1}}{\hat{q}_t} \left(V_{t-1} + \bm_{t-1}\bm_{t-1}^T \right) -\bm_t \bm_t^T \right] \\
+&+ \lambda\,\left[\frac{q_b}{\hat{q}_t} \left(V_{b} + \bm_{b}\bm_{b}^T \right) -\bm_t \bm_t^T \right]
+\end{split} \\
 &= (1 - \lambda)\,\left[\frac{\hat{S}_{t-1}}{\hat{q}_t} -\bm_t \bm_t^T \right] + \lambda\, \left[\frac{S_t}{\hat{q}_t} -\bm_t \bm_t^T \right] \\
 &= \frac{(1- \lambda)\hat{S}_{t-1} + \lambda S_t}{\hat{q}_t} - \bm_t\bm_t^T \\
 &= \frac{\hat{S}_t}{\hat{q}_t} - \bm_t\bm_t^T \label{eq:update-equiv}
 \end{align}
+\todo{Fix typesetting here.}
 Again, Equation~\ref{eq:update-computed} is how we actually compute the update to minimise numerical errors, whilst Equation~\ref{eq:update-equiv} shows that the update is equivalent to the covariance update defined in Equation~\ref{eqn:mstep}.
 Whilst we found this update worked better in practice than a direct implementation, numerical instability is still possible if the standard deviations of the components are small enough relative to the means, and further work is needed to determine if a more stable update can be performed.
 

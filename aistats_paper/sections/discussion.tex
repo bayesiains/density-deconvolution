@@ -2,7 +2,9 @@
 \section{Discussion}
 
 Our results have shown that both of our proposed methods perform comparably to the existing method of fitting extreme deconvolution models, whilst converging faster.
-The results also show that using GPU-based computation speeds up fitting considerably, allowing sublinear scaling of training time with mixture component size $K$. 
+The results also show that using GPU-based computation speeds up fitting considerably, allowing sublinear scaling of training time with mixture component size $K$.
+
+\todo{Hopefully show that scaling is better with $N$ too, in terms of training time and performance.}
 
 Further improvements to our approaches are possible.
 The original paper presents a method of getting out of local maxima by splitting and merging clusters, with the split-merge criteria evaluated on the whole dataset.
