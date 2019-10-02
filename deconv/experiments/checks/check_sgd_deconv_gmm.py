@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from deconv.gmm.plotting import plot_covariance
-from deconv.gmm.sgd_deconv_gmm import SGDDeconvGMM, SGDDeconvDataset
+from deconv.gmm.sgd_deconv_gmm import SGDDeconvGMM
+from deconv.gmm.data import DeconvDataset
 
 from data import generate_data
 
@@ -18,14 +19,14 @@ def check_sgd_deconv_gmm(D, K, N, plot=False, verbose=False, device=None):
     X_train, nc_train, X_test, nc_test = data
     means, covars = params
 
-    train_data = SGDDeconvDataset(
+    train_data = DeconvDataset(
         torch.Tensor(X_train.reshape(-1, D).astype(np.float32)),
         torch.Tensor(
             nc_train.reshape(-1, D, D).astype(np.float32)
         )
     )
 
-    test_data = SGDDeconvDataset(
+    test_data = DeconvDataset(
         torch.Tensor(X_test.reshape(-1, D).astype(np.float32)),
         torch.Tensor(
             nc_test.reshape(-1, D, D).astype(np.float32)
@@ -37,7 +38,8 @@ def check_sgd_deconv_gmm(D, K, N, plot=False, verbose=False, device=None):
         D,
         device=device,
         batch_size=250,
-        epochs=1000,
+        epochs=200,
+        restarts=1,
         lr=1e-1
     )
     gmm.fit(train_data, val_data=test_data, verbose=verbose)

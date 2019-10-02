@@ -6,7 +6,7 @@ import seaborn as sns
 
 from deconv.gmm.plotting import plot_covariance
 from deconv.gmm.online_deconv_gmm import OnlineDeconvGMM
-from deconv.gmm.sgd_deconv_gmm import SGDDeconvDataset
+from deconv.gmm.data import DeconvDataset
 
 from data import generate_data
 
@@ -20,14 +20,14 @@ def check_online_deconv_gmm(D, K, N, plot=False, device=None, verbose=False):
     X_train, nc_train, X_test, nc_test = data
     means, covars = params
 
-    train_data = SGDDeconvDataset(
+    train_data = DeconvDataset(
         torch.Tensor(X_train.reshape(-1, D).astype(np.float32)),
         torch.Tensor(
             nc_train.reshape(-1, D, D).astype(np.float32)
         )
     )
 
-    test_data = SGDDeconvDataset(
+    test_data = DeconvDataset(
         torch.Tensor(X_test.reshape(-1, D).astype(np.float32)),
         torch.Tensor(
             nc_test.reshape(-1, D, D).astype(np.float32)

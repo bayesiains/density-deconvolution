@@ -6,7 +6,7 @@ import torch.utils.data as data_utils
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from deconv.gmm.sgd_deconv_gmm import SGDDeconvDataset
+from deconv.gmm.data import DeconvDataset
 from deconv.gmm.util import minibatch_k_means
 
 sns.set()
@@ -20,7 +20,7 @@ def check_minibatch_k_means(plot=True):
 
     noise_covars = np.zeros((200, 2, 2))
 
-    data = SGDDeconvDataset(
+    data = DeconvDataset(
         torch.Tensor(x.astype(np.float32)),
         torch.Tensor(
             noise_covars.astype(np.float32)

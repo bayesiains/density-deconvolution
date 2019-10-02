@@ -6,7 +6,7 @@ import numpy as np
 import torch
 
 from deconv.gmm.online_deconv_gmm import OnlineDeconvGMM
-from deconv.gmm.sgd_deconv_gmm import SGDDeconvDataset
+from deconv.gmm.data import DeconvDataset
 
 
 def fit_gaia_lim_em(datafile, output_prefix, K, batch_size, epochs, step_size, w_reg,
@@ -18,12 +18,12 @@ def fit_gaia_lim_em(datafile, output_prefix, K, batch_size, epochs, step_size, w
     else:
         device = torch.device('cpu')
 
-    train_data = SGDDeconvDataset(
+    train_data = DeconvDataset(
         torch.Tensor(data['X_train']),
         torch.Tensor(data['C_train'])
     )
 
-    val_data = SGDDeconvDataset(
+    val_data = DeconvDataset(
         torch.Tensor(data['X_val']),
         torch.Tensor(data['C_val'])
     )

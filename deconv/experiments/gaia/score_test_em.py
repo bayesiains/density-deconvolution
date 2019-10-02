@@ -6,7 +6,7 @@ import numpy as np
 import torch
 
 from deconv.gmm.online_deconv_gmm import OnlineDeconvGMM
-from deconv.gmm.sgd_deconv_gmm import SGDDeconvDataset
+from deconv.gmm.data import DeconvDataset
 
 
 def score_em(datafile, results_dir, output_file):

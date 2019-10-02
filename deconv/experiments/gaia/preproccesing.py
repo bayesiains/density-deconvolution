@@ -1,10 +1,13 @@
 import argparse
+import os
 
+import h5py
 import numpy as np
 import pandas as pd
 
 from astropy.table import Table
 from sklearn.model_selection import train_test_split
+import tqdm
 
 np.random.seed(90115)
 
@@ -52,16 +55,18 @@ def vot_to_pandas(vot_file):
     return df
 
 
-def pandas_to_numpy(df, output_file):
+def pandas_to_numpy(df):
     df.insert(12, column='phot_g_mean_mag_error', value=0.01)
     df.insert(12, column='bp_rp_error', value=0.01)
-    error_columns.insert(5, 'phot_g_mean_mag_error')
-    error_columns.insert(5, 'bp_rp_error')
+
+    ec = error_columns.copy()
+    ec.insert(5, 'phot_g_mean_mag_error')
+    ec.insert(5, 'bp_rp_error')
 
     X = df[columns].fillna(0.0).to_numpy(dtype=np.float32)
     C = np.zeros((len(df), 7, 7), dtype=np.float32)
     diag = np.arange(7)
-    C[:, diag, diag] = df[error_columns].fillna(1e6).to_numpy(
+    C[:, diag, diag] = df[ec].fillna(1e6).to_numpy(
         dtype=np.float32
     )
 
@@ -79,6 +84,15 @@ def pandas_to_numpy(df, output_file):
         X_test, C_test, test_size=0.5, random_state=84253
     )
 
+    return (
+        (X_train, C_train),
+        (X_val, C_val),
+        (X_test, C_test)
+    )
+
+
+def numpy_to_file(data, output_file):
+    (X_train, C_train), (X_val, C_val), (X_test, C_test) = data
     np.savez(
         output_file,
         X_train=X_train,
@@ -89,13 +103,53 @@ def pandas_to_numpy(df, output_file):
         C_test=C_test
     )
 
+
+def process_csv(csv_dir, output_file):
+    file_list = os.listdir(csv_dir)
+
+    store = h5py.File(output_file, 'w')
+
+    train_data = store.create_group('train')
+    val_data = store.create_group('val')
+    test_data = store.create_group('test')
+
+    groups = (train_data, val_data, test_data)
+
+    for g in groups:
+        g.create_dataset(
+            'X', (0, 7),
+            maxshape=(None, 7),
+            dtype=np.float32,
+            chunks=(512, 7),
+            compression='gzip'
+        )
+        g.create_dataset(
+            'C', (0, 7, 7),
+            maxshape=(None, 7, 7),
+            dtype=np.float32,
+            chunks=(512, 7, 7),
+            compression='gzip'
+        )
+
+    for f in tqdm.tqdm(file_list):
+        df = pd.read_csv(csv_dir + f)
+        data = pandas_to_numpy(df)
+
+        for d, g in zip(data, groups):
+            X, C = d
+            g['X'].resize((g['X'].shape[0] + X.shape[0], 7))
+            g['X'][-X.shape[0]:, :] = X
+
+            g['C'].resize((g['C'].shape[0] + C.shape[0], 7, 7))
+            g['C'][-C.shape[0]:, :, :] = C
+
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('input_file')
+    parser.add_argument('csv_dir')
     parser.add_argument('output_file')
 
     args = parser.parse_args()
 
-    df = vot_to_pandas(args.input_file)
-    pandas_to_numpy(df, args.output_file)
+    process_csv(args.csv_dir, args.output_file)

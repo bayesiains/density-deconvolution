@@ -5,7 +5,8 @@ import os
 import numpy as np
 import torch
 
-from deconv.gmm.sgd_deconv_gmm import SGDDeconvGMM, SGDDeconvDataset
+from deconv.gmm.sgd_deconv_gmm import SGDDeconvGMM
+from decon.gmm.data import DeconvDataset
 
 
 def score_sgd(datafile, results_dir, output_file):
