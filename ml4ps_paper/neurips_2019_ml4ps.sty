@@ -18,7 +18,7 @@
 % last revision: March 2019
 
 \NeedsTeXFormat{LaTeX2e}
-\ProvidesPackage{neurips_2019}[2019/03/13 NeurIPS 2019 submission/camera-ready style file]
+\ProvidesPackage{neurips_2019_ml4ps}[2019/03/13 NeurIPS 2019 submission/camera-ready style file]
 
 % declare final option, which creates camera-ready copy
 \newif\if@neuripsfinal\@neuripsfinalfalse
@@ -65,13 +65,13 @@
 \else
   \if@neuripsfinal
     \newcommand{\@noticestring}{%
-      \@neuripsordinal\/ Conference on Neural Information Processing Systems
+      Second Workshop on Machine Learning and the Physical Sciences
       (NeurIPS \@neuripsyear), \@neuripslocation.%
     }
   \else
     \newcommand{\@noticestring}{%
-      Submitted to \@neuripsordinal\/ Conference on Neural Information
-      Processing Systems (NeurIPS \@neuripsyear). Do not distribute.%
+      Submitted to Second Workshop on Machine Learning and the Physical Sciences
+      (NeurIPS \@neuripsyear). Do not distribute.%
     }
 
     % line numbers for submission
@@ -122,7 +122,7 @@
     footskip=30pt
   }
   \@ifpackageloaded{fullpage}
-    {\PackageWarning{neurips_2019}{fullpage package not allowed! Overwriting formatting.}}
+    {\PackageWarning{neurips_2019_ml4ps}{fullpage package not allowed! Overwriting formatting.}}
     {}
 }
 
