@@ -4,7 +4,7 @@ import matplotlib as mpl
 
 def plot_covariance(mean, cov, ax, alpha=0.5, color=None):
     """
-    Plots a Gaussian convariance on a Matplotlib axis
+    Plot a Gaussian convariance on a Matplotlib axis.
 
     Adapted from https://scikit-learn.org/stable/auto_examples/
     mixture/plot_gmm_covariances.html

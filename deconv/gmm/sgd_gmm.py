@@ -12,6 +12,7 @@ mvn = dist.multivariate_normal.MultivariateNormal
 
 
 class SGDGMMModule(nn.Module):
+    """Implementation of a standard GMM as a PyTorch nn module."""
 
     def __init__(self, components, dimensions, w, device=None):
         super().__init__()
@@ -63,6 +64,7 @@ class SGDGMMModule(nn.Module):
 
 
 class BaseSGDGMM(ABC):
+    """ABC for fitting a PyTorch nn-based GMM."""
 
     def __init__(self, components, dimensions, epochs=10000, lr=1e-3,
                  batch_size=64, tol=1e-6, restarts=5, max_no_improvement=20,
@@ -110,7 +112,7 @@ class BaseSGDGMM(ABC):
         return l.sum()
 
     def fit(self, data, val_data=None, verbose=False, interval=1):
-
+        """Fit the GMM to data."""
         n_total = len(data)
 
         init_loader = data_utils.DataLoader(
@@ -131,7 +133,7 @@ class BaseSGDGMM(ABC):
 
         best_loss = float('inf')
 
-        for j in range(self.restarts):
+        for q in range(self.restarts):
 
             self.init_params(init_loader)
 
@@ -248,6 +250,7 @@ class BaseSGDGMM(ABC):
 
 
 class SGDGMM(BaseSGDGMM):
+    """Concrete implementation of class to fit a standard GMM with SGD."""
 
     def __init__(self, components, dimensions, epochs=10000, lr=1e-3,
                  batch_size=64, tol=1e-6, w=1e-3, device=None):

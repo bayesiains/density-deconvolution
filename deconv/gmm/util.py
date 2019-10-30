@@ -2,7 +2,7 @@ import torch
 
 
 def k_means(X, k, max_iters=50, tol=1e-9, device=None):
-
+        """Do standard k-means clustering."""
         n, d = X.shape
 
         x_min = torch.min(X, dim=0)[0]
@@ -34,7 +34,11 @@ def k_means(X, k, max_iters=50, tol=1e-9, device=None):
 
 
 def minibatch_k_means(loader, k, max_iters=50, tol=1e-3, device=None):
+    """
+    Do minibatch version of k-means
 
+    Based on https://www.eecs.tufts.edu/~dsculley/papers/fastkmeans.pdf
+    """
     centroids = next(iter(loader))[0][:k].to(device)
     counts = torch.ones(k, device=device)
 

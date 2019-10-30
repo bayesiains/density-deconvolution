@@ -1,3 +1,4 @@
+"""Script to fit the minibatch EM model."""
 import argparse
 import json
 import time

@@ -1,15 +1,13 @@
 import torch
 import torch.distributions as dist
-import torch.nn as nn
-import torch.utils.data as data_utils
 
 from .sgd_gmm import SGDGMMModule, BaseSGDGMM
-from .util import minibatch_k_means
 
 mvn = dist.multivariate_normal.MultivariateNormal
 
 
 class SGDDeconvGMMModule(SGDGMMModule):
+    """Implementation of a deconvolving GMM as a PyTorch nn module."""
 
     def forward(self, data):
         x, noise_covars = data
@@ -28,20 +26,8 @@ class SGDDeconvGMMModule(SGDGMMModule):
         return -1 * torch.sum(log_prob)
 
 
-class SGDDeconvDataset(data_utils.Dataset):
-
-    def __init__(self, X, noise_covars):
-        self.X = X
-        self.noise_covars = noise_covars
-
-    def __len__(self):
-        return self.X.shape[0]
-
-    def __getitem__(self, i):
-        return (self.X[i, :], self.noise_covars[i, :, :])
-
-
 class SGDDeconvGMM(BaseSGDGMM):
+    """Concrete implementation of class to fit a deconvolving GMM with SGD."""
 
     def __init__(self, components, dimensions, epochs=10000, lr=1e-3,
                  batch_size=64, tol=1e-6, w=1e-3, restarts=5,

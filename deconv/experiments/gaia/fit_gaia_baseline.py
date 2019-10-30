@@ -1,3 +1,4 @@
+"""Script to fit the baseline model"""
 import argparse
 import json
 import time

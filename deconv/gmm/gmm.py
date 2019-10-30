@@ -7,6 +7,7 @@ mvn = dist.multivariate_normal.MultivariateNormal
 
 
 class GMM(BaseGMM):
+    """Implementation of a standard GMM fitted with EM."""
 
     def _init_expectations(self, data):
         X = data[0]

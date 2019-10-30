@@ -1,7 +1,12 @@
+"""
+Script to preprocess data for the Gaia experiments.
+
+Converts a VOT file from a query on the Gaia DR2 source table
+into a Numpy .npz file for use with the experiments.
+"""
 import argparse
 
 import numpy as np
-import pandas as pd
 
 from astropy.table import Table
 from sklearn.model_selection import train_test_split
@@ -88,6 +93,7 @@ def pandas_to_numpy(df, output_file):
         X_test=X_test,
         C_test=C_test
     )
+
 
 if __name__ == '__main__':
 
