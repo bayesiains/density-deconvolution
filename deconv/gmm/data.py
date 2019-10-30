@@ -38,6 +38,6 @@ class H5DeconvDataset(data_utils.Dataset):
             store = h5py.File(self.filepath, 'r')
             self.group = store[self.key]
         return (
-            torch.from_numpy(self.group['X'][i, :]),
-            torch.from_numpy(self.group['C'][i, :, :])
+            self.group['X'][i, :],
+            self.group['C'][i, :, :]
         )

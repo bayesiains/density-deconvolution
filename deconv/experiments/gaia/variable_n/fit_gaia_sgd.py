@@ -18,7 +18,7 @@ def fit_gaia_lim_sgd(datafile, output_prefix, K, batch_size, epochs, lr,
         device = torch.device('cpu')
 
     train_data = H5DeconvDataset(datafile, 'train', limit=train_limit)
-    val_data = H5DeconvDataset(datafile, 'val', limit=25e6)
+    val_data = H5DeconvDataset(datafile, 'val', limit=int(25e6))
 
     gmm = SGDDeconvGMM(
         K,

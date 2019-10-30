@@ -117,7 +117,7 @@ class BaseSGDGMM(ABC):
             data,
             batch_size=self.batch_size * self.k_means_factor,
             num_workers=8,
-            shuffle=True,
+            shuffle=False,
             pin_memory=True
         )
 
