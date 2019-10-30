@@ -116,7 +116,7 @@ class BaseSGDGMM(ABC):
         init_loader = data_utils.DataLoader(
             data,
             batch_size=self.batch_size * self.k_means_factor,
-            num_workers=4,
+            num_workers=8,
             shuffle=True,
             pin_memory=True
         )
@@ -124,7 +124,7 @@ class BaseSGDGMM(ABC):
         loader = data_utils.DataLoader(
             data,
             batch_size=self.batch_size,
-            num_workers=4,
+            num_workers=8,
             shuffle=True,
             pin_memory=True
         )

@@ -3,6 +3,7 @@ import torch.utils.data as data_utils
 
 import h5py
 
+
 class DeconvDataset(data_utils.Dataset):
 
     def __init__(self, X, noise_covars):
@@ -18,16 +19,25 @@ class DeconvDataset(data_utils.Dataset):
 
 class H5DeconvDataset(data_utils.Dataset):
 
-    def __init__(self, filepath, key):
+    def __init__(self, filepath, key, limit=None):
 
-        self.store = h5py.File(filepath, 'r')
-        self.group = self.store[key]
+        self.filepath = filepath
+        self.key = key
+        self.limit = limit
+        self.group = None
 
     def __len__(self):
-        return self.group['X'].shape[0]
+        if self.limit:
+            return self.limit
+        else:
+            store = h5py.File(self.filepath, 'r')
+            return store[self.key]['X'].shape[0]
 
     def __getitem__(self, i):
+        if self.group is None:
+            store = h5py.File(self.filepath, 'r')
+            self.group = store[self.key]
         return (
-            self.group['X'][i, :],
-            self.group['C'][i, :, :]
+            torch.from_numpy(self.group['X'][i, :]),
+            torch.from_numpy(self.group['C'][i, :, :])
         )
