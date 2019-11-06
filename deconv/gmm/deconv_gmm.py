@@ -89,7 +89,6 @@ class DeconvGMM(BaseGMM):
 
         for j in range(self.k):
             diffs = self.means - cond_means    # n, j, d
-            reg_diffs = self.means - self.m_hat
             outer_p = torch.matmul(     # n, d, d
                 torch.transpose(diffs[:, j, None, :], 1, 2),    # n, d, 1
                 diffs[:, j, None, :]    # n, 1, d
@@ -103,18 +102,10 @@ class DeconvGMM(BaseGMM):
                     dim=0
                 )
             )
-            self.covars[j, :, :] += self.eta * torch.matmul(
-                reg_diffs[j, :, None],
-                reg_diffs[j, None, :]
-            )
             self.covars[j, :, :] += 2 * self.w
-            self.covars[j, :, :] /= (
-                weights[j, :] + 1 + 2 * (self.omega - (self.d + 1) / 2)
-            )
+            self.covars[j, :, :] /= weights[j]
 
-        self.weights = (weights + self.gamma - 1) / (
-            n + self.gamma.sum() - self.k
-        )
+        self.weights = weights / n
 
     def score(self, data):
         log_prob, _ = self._e_step
