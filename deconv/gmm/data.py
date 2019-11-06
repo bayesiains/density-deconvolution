@@ -19,25 +19,29 @@ class DeconvDataset(data_utils.Dataset):
 
 class H5DeconvDataset(data_utils.Dataset):
 
-    def __init__(self, filepath, key, limit=None):
+    def __init__(self, filepath, key, limit=None, batch_size=512):
 
         self.filepath = filepath
         self.key = key
         self.limit = limit
         self.group = None
+        self.batch_size = batch_size
 
     def __len__(self):
         if self.limit:
-            return self.limit
+            return self.limit // self.batch_size
         else:
             store = h5py.File(self.filepath, 'r')
-            return store[self.key]['X'].shape[0]
+            return store[self.key]['X'].shape[0] // self.batch_size
 
     def __getitem__(self, i):
         if self.group is None:
             store = h5py.File(self.filepath, 'r')
             self.group = store[self.key]
+
+        start = self.batch_size * i
+        stop = self.batch_size * (i + 1)
         return (
-            self.group['X'][i, :],
-            self.group['C'][i, :, :]
+            self.group['X'][start:stop, :],
+            self.group['C'][start:stop, :, :]
         )

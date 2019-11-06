@@ -12,4 +12,4 @@
 source ~/.bashrc
 conda activate deconv
 
-python deconv/experiments/gaia/variable_n/fit_gaia_sgd.py -c 512 -b 500 -e 10 -l 0.01 -w=0.001 -k 1 --lr-step 10 --lr-gamma 0.1 --train-limit 25000000 --use-cuda /disk/scratch/s0904254/gaia_source.h5 results/variable_n/sgd_512_25_${SLURM_JOBID}
+python deconv/experiments/gaia/variable_n/fit_gaia_sgd.py -c 512 -b 1024 -e 10 -l 0.01 -w=0.001 -k 5 --lr-step 10 --lr-gamma 0.1 --train-limit 25000000 --use-cuda /disk/scratch/s0904254/gaia_source.h5 results/variable_n/sgd_512_25_${SLURM_JOBID}

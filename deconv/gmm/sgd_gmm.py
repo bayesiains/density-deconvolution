@@ -113,27 +113,28 @@ class BaseSGDGMM(ABC):
 
         n_total = len(data)
 
-        init_loader = data_utils.DataLoader(
-            data,
-            batch_size=self.batch_size * self.k_means_factor,
-            num_workers=8,
-            shuffle=False,
-            pin_memory=True
-        )
-
-        loader = data_utils.DataLoader(
-            data,
-            batch_size=self.batch_size,
-            num_workers=8,
-            shuffle=True,
-            pin_memory=True
-        )
+        if self.batch_size is None:
+            loader = data_utils.DataLoader(
+                data,
+                batch_size=None,
+                num_workers=8,
+                sampler=data_utils.RandomSampler(data),
+                pin_memory=True
+            )
+        else:
+            loader = data_utils.DataLoader(
+                data,
+                batch_size=self.batch_size,
+                num_workers=8,
+                shuffle=True,
+                pin_memory=True
+            )
 
         best_loss = float('inf')
 
         for j in range(self.restarts):
 
-            self.init_params(init_loader)
+            self.init_params(loader)
 
             train_loss_curve = []
 
