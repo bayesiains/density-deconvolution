@@ -39,7 +39,6 @@ def check_sgd_deconv_gmm(D, K, N, plot=False, verbose=False, device=None):
         device=device,
         batch_size=250,
         epochs=200,
-        restarts=1,
         lr=1e-1
     )
     gmm.fit(train_data, val_data=test_data, verbose=verbose)

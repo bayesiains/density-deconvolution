@@ -8,12 +8,12 @@ from .util import minibatch_k_means
 class OnlineDeconvGMM(DeconvGMM):
 
     def __init__(self, components, dimensions, epochs=1000, w=1e-6,
-                 tol=1e-6, step_size=0.1, batch_size=100, restarts=5,
+                 tol=1e-6, step_size=0.1, batch_size=100,
                  max_no_improvement=20, k_means_factor=100,
                  k_means_iters=10, lr_step=10, lr_gamma=0.1,
                  device=None):
         super().__init__(components, dimensions, epochs=epochs, w=w, tol=tol,
-                         restarts=restarts, device=device)
+                         device=device)
         self.batch_size = batch_size
         self.step_size = step_size
         self.max_no_improvement = max_no_improvement
@@ -60,105 +60,75 @@ class OnlineDeconvGMM(DeconvGMM):
 
         n_inf = float('-inf')
 
-        best_ll = float('-inf')
+        self.train_ll_curve = []
+        if val_data:
+            self.val_ll_curve = []
 
-        for j in range(self.restarts):
+        self._init_sum_stats(init_loader, n)
 
-            train_ll_curve = []
-            if val_data:
-                val_ll_curve = []
+        prev_ll = float('-inf')
+        max_val_ll = float('-inf')
+        no_improvements = 0
 
-            self._init_sum_stats(init_loader, n)
-
-            prev_ll = float('-inf')
-            max_val_ll = float('-inf')
-            no_improvements = 0
-
-            for i in range(self.epochs):
-                train_ll = 0.0
-                for _, d in enumerate(loader):
-                    d = [a.to(self.device) for a in d]
-                    log_prob, expectations = self._e_step(d)
-                    if log_prob == n_inf:
-                        break
-                    train_ll += log_prob.item()
-                    self._m_step(expectations, n, self.step_size)
-
-                if train_ll == 0.0:
-                    print('Log prob 0, crashed.')
-                    train_ll = 0.0
-                    val_ll = 0.0
+        for i in range(self.epochs):
+            train_ll = 0.0
+            for _, d in enumerate(loader):
+                d = [a.to(self.device) for a in d]
+                log_prob, expectations = self._e_step(d)
+                if log_prob == n_inf:
                     break
+                train_ll += log_prob.item()
+                self._m_step(expectations, n, self.step_size)
 
-                train_ll = self.score_batch(data)
-                train_ll_curve.append(train_ll)
+            if train_ll == 0.0:
+                print('Log prob 0, crashed.')
+                train_ll = 0.0
+                val_ll = 0.0
+                break
 
+            train_ll = self.score_batch(data)
+            self.train_ll_curve.append(train_ll)
+
+            if val_data:
+                val_ll = self.score_batch(val_data)
+                self.val_ll_curve.append(val_ll)
+
+            if (i + 1) % self.lr_step == 0:
+                self.step_size *= self.lr_gamma
+
+            if verbose and i % interval == 0:
                 if val_data:
-                    val_ll = self.score_batch(val_data)
-                    val_ll_curve.append(val_ll)
+                    print('Epoch {}, Train LL: {}, Val LL: {}'.format(
+                        i,
+                        train_ll,
+                        val_ll
+                    ))
+                else:
+                    print('Epoch {}, Train LL: {}'.format(
+                        i, train_ll
+                    ))
 
-                if (i + 1) % self.lr_step == 0:
-                    self.step_size *= self.lr_gamma
+            if abs(train_ll - prev_ll) < self.tol:
+                print('Train LL converged within tolerance at {}'.format(
+                    train_ll
+                ))
+                break
 
-                if verbose and i % interval == 0:
-                    if val_data:
-                        print('Epoch {}, Train LL: {}, Val LL: {}'.format(
-                            i,
-                            train_ll,
-                            val_ll
-                        ))
-                    else:
-                        print('Epoch {}, Train LL: {}'.format(
-                            i, train_ll
-                        ))
+            if val_data:
+                if val_ll > max_val_ll:
+                    no_improvements = 0
+                    max_val_ll = val_ll
+                else:
+                    no_improvements += 1
 
-                if abs(train_ll - prev_ll) < self.tol:
-                    print('Train LL converged within tolerance at {}'.format(
-                        train_ll
+                if no_improvements > self.max_no_improvement:
+                    print('No improvement in val LL for {} epochs. Early Stopping at {}'.format(
+                        self.max_no_improvement,
+                        val_ll
                     ))
                     break
 
-                if val_data:
-                    if val_ll > max_val_ll:
-                        no_improvements = 0
-                        max_val_ll = val_ll
-                    else:
-                        no_improvements += 1
-
-                    if no_improvements > self.max_no_improvement:
-                        print('No improvement in val LL for {} epochs. Early Stopping at {}'.format(
-                            self.max_no_improvement,
-                            val_ll
-                        ))
-                        break
-
-                prev_ll = train_ll
-
-            if val_data:
-                score = val_ll
-            else:
-                score = train_ll
-
-            if score > best_ll and score != 0.0:
-                best_params = (
-                    self.weights.clone().detach(),
-                    self.means.clone().detach(),
-                    self.covars.clone().detach(),
-                    self.chol_covars.clone().detach()
-                )
-                best_ll = score
-
-                best_train_ll_curve = train_ll_curve
-                if val_data:
-                    best_val_ll_curve = val_ll_curve
-
-        if best_ll == n_inf:
-            raise ValueError('Could not fit model. Try increasing w?')
-
-        self.weights, self.means, self.covars, self.chol_covars = best_params
-        self.train_ll_curve = best_train_ll_curve
-        if val_data:
-            self.val_ll_curve = best_val_ll_curve
+            prev_ll = train_ll
 
     def _adjust(self, covar, scale, b, c):
         result = scale[:, :, None] * covar

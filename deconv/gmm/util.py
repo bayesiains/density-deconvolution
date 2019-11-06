@@ -43,8 +43,8 @@ def minibatch_k_means(loader, k, max_iters=50, tol=1e-3, device=None):
     print('Stating minibatch_k_means')
     for j in range(max_iters):
         print('Iter: {}'.format(j))
-        for X, _ in loader:
-            X = X.to(device)
+        for d in loader:
+            X = d[0].to(device)
             diffs = X[:, None, :] - centroids[None, :, :]
             labels = diffs.norm(dim=2).min(dim=1)[1]
 

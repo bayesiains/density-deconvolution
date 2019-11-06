@@ -28,7 +28,7 @@ def check_gmm(D, K, N, plot=False, device=None):
 
     X_data = torch.Tensor(X.reshape(-1, D).astype(np.float32)).to(device)
 
-    gmm = GMM(K, D, max_iters=1000, device=device)
+    gmm = GMM(K, D, epochs=1000, device=device)
     gmm.fit((X_data,))
 
     if plot:

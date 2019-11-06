@@ -40,7 +40,6 @@ def check_online_deconv_gmm(D, K, N, plot=False, device=None, verbose=False):
         device=device,
         batch_size=500,
         step_size=1e-1,
-        restarts=1,
         epochs=20,
         k_means_iters=20,
         lr_step=10,

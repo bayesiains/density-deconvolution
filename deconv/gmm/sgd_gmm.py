@@ -65,7 +65,7 @@ class SGDGMMModule(nn.Module):
 class BaseSGDGMM(ABC):
 
     def __init__(self, components, dimensions, epochs=10000, lr=1e-3,
-                 batch_size=64, tol=1e-6, restarts=5, max_no_improvement=20,
+                 batch_size=64, tol=1e-6, max_no_improvement=20,
                  k_means_factor=100, w=1e-6, k_means_iters=10, lr_step=5,
                  lr_gamma=0.1, device=None):
         self.k = components
@@ -75,7 +75,6 @@ class BaseSGDGMM(ABC):
         self.tol = 1e-6
         self.lr = lr
         self.w = w
-        self.restarts = restarts
         self.k_means_factor = k_means_factor
         self.k_means_iters = k_means_iters
         self.max_no_improvement = max_no_improvement
@@ -132,93 +131,74 @@ class BaseSGDGMM(ABC):
 
         best_loss = float('inf')
 
-        for j in range(self.restarts):
+        self.init_params(loader)
 
-            self.init_params(loader)
+        self.train_loss_curve = []
 
-            train_loss_curve = []
+        if val_data:
+            self.val_loss_curve = []
+
+        prev_loss = float('inf')
+        if val_data:
+            best_val_loss = float('inf')
+            no_improvement_epochs = 0
+
+        for i in range(self.epochs):
+            train_loss = 0.0
+            for j, d in enumerate(loader):
+
+                d = [a.to(self.device) for a in d]
+
+                self.optimiser.zero_grad()
+
+                loss = self.module(d)
+                train_loss += loss.item()
+
+                n = d[0].shape[0]
+                loss += self.reg_loss(n, n_total)
+
+                loss.backward()
+                self.optimiser.step()
+
+            self.train_loss_curve.append(train_loss)
 
             if val_data:
-                val_loss_curve = []
+                val_loss = self.score_batch(val_data)
+                self.val_loss_curve.append(val_loss)
 
-            prev_loss = float('inf')
+            self.scheduler.step()
+
+            if verbose and i % interval == 0:
+                if val_data:
+                    print('Epoch {}, Train Loss: {}, Val Loss :{}'.format(
+                        i,
+                        train_loss,
+                        val_loss
+                    ))
+                else:
+                    print('Epoch {}, Loss: {}'.format(i, train_loss))
+
             if val_data:
-                best_val_loss = float('inf')
-                no_improvement_epochs = 0
+                if val_loss < best_val_loss:
+                    no_improvement_epochs = 0
+                    best_val_loss = val_loss
+                else:
+                    no_improvement_epochs += 1
 
-            for i in range(self.epochs):
-                train_loss = 0.0
-                for j, d in enumerate(loader):
-
-                    d = [a.to(self.device) for a in d]
-
-                    self.optimiser.zero_grad()
-
-                    loss = self.module(d)
-                    train_loss += loss.item()
-
-                    n = d[0].shape[0]
-                    loss += self.reg_loss(n, n_total)
-
-                    loss.backward()
-                    self.optimiser.step()
-
-                train_loss_curve.append(train_loss)
-
-                if val_data:
-                    val_loss = self.score_batch(val_data)
-                    val_loss_curve.append(val_loss)
-
-                self.scheduler.step()
-
-                if verbose and i % interval == 0:
-                    if val_data:
-                        print('Epoch {}, Train Loss: {}, Val Loss :{}'.format(
-                            i,
-                            train_loss,
-                            val_loss
-                        ))
-                    else:
-                        print('Epoch {}, Loss: {}'.format(i, train_loss))
-
-                if val_data:
-                    if val_loss < best_val_loss:
-                        no_improvement_epochs = 0
-                        best_val_loss = val_loss
-                    else:
-                        no_improvement_epochs += 1
-
-                    if no_improvement_epochs > self.max_no_improvement:
-                        print('No improvement in val loss for {} epochs. Early Stopping at {}'.format(
-                            self.max_no_improvement,
-                            val_loss
-                        ))
-                        break
-
-                if abs(train_loss - prev_loss) < self.tol:
-                    print('Training loss converged within tolerance at {}'.format(
-                        train_loss
+                if no_improvement_epochs > self.max_no_improvement:
+                    print('No improvement in val loss for {} epochs. Early Stopping at {}'.format(
+                        self.max_no_improvement,
+                        val_loss
                     ))
                     break
 
-                prev_loss = train_loss
+            if abs(train_loss - prev_loss) < self.tol:
+                print('Training loss converged within tolerance at {}'.format(
+                    train_loss
+                ))
+                break
 
-            if val_data:
-                score = val_loss
-            else:
-                score = train_loss
-
-            if score < best_loss:
-                best_model = copy.deepcopy(self.module)
-                best_loss = score
-                best_train_loss_curve = train_loss_curve
-                if val_data:
-                    best_val_loss_curve = val_loss_curve
-
-        self.module = best_model
-        self.train_loss_curve = best_train_loss_curve
-        if val_data:
-            self.val_loss_curve = best_val_loss_curve
+            prev_loss = train_loss
 
     def score(self, data):
         with torch.no_grad():

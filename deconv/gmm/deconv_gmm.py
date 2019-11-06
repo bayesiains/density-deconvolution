@@ -11,9 +11,9 @@ mvn = dist.multivariate_normal.MultivariateNormal
 class DeconvGMM(BaseGMM):
 
     def __init__(self, components, dimensions, epochs=1000,
-                 w=1e-6, tol=1e-6, restarts=5, device=None):
+                 w=1e-6, tol=1e-6, device=None):
         super().__init__(components, dimensions, epochs=epochs, tol=tol,
-                         restarts=restarts, device=device)
+                         device=device)
 
         self.w = w * torch.eye(self.d, device=self.device)
 

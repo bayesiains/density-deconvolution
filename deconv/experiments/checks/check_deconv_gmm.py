@@ -41,7 +41,7 @@ def check_deconv_gmm(D, K, N, plot=False, device=None):
         ).to(device)
     )
 
-    gmm = DeconvGMM(K, D, max_iters=1000, device=device)
+    gmm = DeconvGMM(K, D, epochs=1000, device=device)
     gmm.fit(data)
 
     if plot:
