@@ -23,7 +23,7 @@ class SGDDeconvGMMModule(SGDGMMModule):
 
         log_prob = torch.logsumexp(log_resp, dim=1)
 
-        return -1 * torch.sum(log_prob)
+        return log_prob
 
 
 class SGDDeconvDataset(data_utils.Dataset):

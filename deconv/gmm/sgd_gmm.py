@@ -59,7 +59,7 @@ class SGDGMMModule(nn.Module):
 
         log_prob = torch.logsumexp(log_resp, dim=1)
 
-        return -1 * torch.sum(log_prob)
+        return log_prob
 
 
 class BaseSGDGMM(ABC):
@@ -120,6 +120,16 @@ class BaseSGDGMM(ABC):
                 sampler=data_utils.RandomSampler(data),
                 pin_memory=True
             )
+            init_data = copy.deepcopy(data)
+            init_data.batch_size *= 16
+
+            init_loader = data_utils.DataLoader(
+                init_data,
+                batch_size=None,
+                num_workers=8,
+                sampler=data_utils.RandomSampler(init_data),
+                pin_memory=True
+            )
         else:
             loader = data_utils.DataLoader(
                 data,
@@ -129,7 +139,13 @@ class BaseSGDGMM(ABC):
                 pin_memory=True
             )
 
-        best_loss = float('inf')
+            init_loader = data_utils.DataLoader(
+                data,
+                batch_size=16 * self.batch_size,
+                num_workers=8,
+                shuffle=True,
+                pin_memory=True
+            )
 
         self.init_params(loader)
 
@@ -151,7 +167,9 @@ class BaseSGDGMM(ABC):
 
                 self.optimiser.zero_grad()
 
-                loss = self.module(d)
+                log_prob = self.module(d)
+                loss = -1 * torch.sum(log_prob)
+
                 train_loss += loss.item()
 
                 n = d[0].shape[0]
@@ -163,7 +181,7 @@ class BaseSGDGMM(ABC):
             self.train_loss_curve.append(train_loss)
 
             if val_data:
-                val_loss = self.score_batch(val_data)
+                val_loss = -1 * self.score_batch(val_data)
                 self.val_loss_curve.append(val_loss)
 
             self.scheduler.step()
@@ -216,7 +234,7 @@ class BaseSGDGMM(ABC):
 
         for j, d in enumerate(loader):
             d = [a.to(self.device) for a in d]
-            log_prob += self.score(d).item()
+            log_prob += torch.sum(self.score(d)).item()
 
         return log_prob
 
