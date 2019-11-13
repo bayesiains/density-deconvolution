@@ -51,8 +51,13 @@ def minibatch_k_means(loader, k, max_iters=50, tol=1e-3, device=None):
             counts += torch.bincount(labels, minlength=k).float()
             eta = 1 / counts
 
-            for q in range(k):
-                centroids[q] += eta[q] * (diffs[labels == q, q, :]).sum(dim=0)
+            mask = torch.zeros_like(diffs)
+            mask[torch.arange(mask.shape[0]), labels, :] = 1
+
+            centroids += (
+                eta[:, None] * (mask * diffs)
+            ).sum(dim=0)
+
 
         norm = torch.norm(centroids, dim=0).sum()
 
@@ -60,6 +65,7 @@ def minibatch_k_means(loader, k, max_iters=50, tol=1e-3, device=None):
             print('Converged')
             return counts, centroids
         prev_norm = norm
+
 
     print('Finished minibatch_k_means')
     return counts, centroids

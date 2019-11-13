@@ -15,8 +15,8 @@ sns.set()
 def check_minibatch_k_means(plot=True):
 
     x = np.random.randn(200, 2)
-    x[:100, :] += np.array([-5, 0])
-    x[100:, :] += np.array([5, 0])
+    x[:100, :] += np.array([-200, 0])
+    x[100:, :] += np.array([200, 0])
 
     noise_covars = np.zeros((200, 2, 2))
 
