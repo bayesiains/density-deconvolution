@@ -1,0 +1,135 @@
+% Gemini theme
+% https://github.com/anishathalye/gemini
+%
+% We try to keep this Overleaf template in sync with the canonical source on
+% GitHub, but it's recommended that you obtain the template directly from
+% GitHub to ensure that you are using the latest version.
+
+\documentclass[final]{beamer}
+
+% ====================
+% Packages
+% ====================
+
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[size=custom,width=84.1,height=118.9,scale=1.175]{beamerposter}
+\usetheme{gemini}
+\usecolortheme{edinburgh}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage[numbers]{natbib}
+\usetikzlibrary{shapes, arrows, positioning, fit, calc, arrows.meta}
+\usetikzlibrary{bayesnet, positioning}
+\tikzset{>=latex}
+
+\bibliographystyle{abbrv}
+
+% ====================
+% Lengths
+% ====================
+
+% If you have N columns, choose \sepwidth and \colwidth such that
+% (N+1)*\sepwidth + N*\colwidth = \paperwidth
+\newlength{\sepwidth}
+\newlength{\colwidth}
+\setlength{\sepwidth}{0.0333\paperwidth}
+\setlength{\colwidth}{0.45\paperwidth}
+
+\newcommand{\separatorcolumn}{\begin{column}{\sepwidth}\end{column}}
+
+\definecolor{phicolor}{HTML}{0074D9}
+\definecolor{gammacolor}{HTML}{FF851B}
+
+% Tikz options
+\tikzset{%
+  var/.style      = {draw, thick, circle, minimum size=0.6cm, inner sep=0},
+  block/.style    = {draw, thick, rectangle, rounded corners},
+  customline/.style    = {draw opacity=0.4, line width=1}
+}
+\tikzstyle{arrow} = [draw,line width=0.8pt, black, >=triangle 45]
+
+\definecolor{b}{rgb}{0, 0, 0}
+\definecolor{g}{rgb}{0, 0, 0}
+\definecolor{r}{rgb}{0, 0, 0}
+\definecolor{m}{rgb}{0, 0, 0}
+
+% ====================
+% Title
+% ====================
+
+\title{Scalable Extreme Deconvolution}
+
+\author{James A. Ritchie, Iain Murray}
+
+\institute[]{School of Informatics, University of Edinburgh}
+
+% ====================
+% Body
+% ====================
+
+\begin{document}
+
+\addtobeamertemplate{headline}{} 
+{
+    \begin{tikzpicture}[remember picture,overlay] 
+    \node [anchor=north west, inner sep=3cm] at ([xshift=0.cm, yshift=1.cm]current page.north west)     
+    {\includegraphics[height=4.cm]{figures/uoe-informatics-white.png}}; 
+    \end{tikzpicture} 
+}
+
+\addtobeamertemplate{headline}{} 
+{
+    \begin{tikzpicture}[remember picture,overlay] 
+    \node [anchor=north east, inner sep=3cm] at ([xshift=0.cm, yshift=1.cm]current page.north east)     
+    {\includegraphics[height=3.cm]{figures/cdt-inverted.eps}}; 
+    \end{tikzpicture} 
+}
+
+\addtobeamertemplate{headline}{} 
+{
+    \begin{tikzpicture}[remember picture,overlay] 
+    \node [anchor=north east, inner sep=3cm] at ([xshift=0.cm, yshift=-3.cm]current page.north east)     
+    {\includegraphics[height=3.cm]{figures/epsrc_logo.pdf}}; 
+    \end{tikzpicture} 
+}
+
+\begin{frame}[t]
+\begin{columns}[t]
+\separatorcolumn
+
+\begin{column}{\colwidth}
+    
+    \begin{alertblock}{Summary}
+    \end{alertblock}
+    
+    \begin{block}{Column 1}
+    \end{block}
+    
+\end{column}
+
+\separatorcolumn
+
+\begin{column}{\colwidth}
+
+    \begin{block}{Column 2}
+    \end{block}
+
+    \begin{block}{Acknowledgements}
+    \end{block}
+
+    \begin{block}{References}
+
+    \nocite{*}
+    \footnotesize{\bibliography{poster}}
+
+    \end{block}
+    
+\end{column}
+
+\separatorcolumn
+\end{columns}
+\end{frame}
+
+\end{document}
