@@ -34,8 +34,10 @@
 % (N+1)*\sepwidth + N*\colwidth = \paperwidth
 \newlength{\sepwidth}
 \newlength{\colwidth}
+\newlength{\doublewidth}
 \setlength{\sepwidth}{0.0333\paperwidth}
 \setlength{\colwidth}{0.45\paperwidth}
+\setlength{\doublewidth}{0.933\paperwidth}
 
 \newcommand{\separatorcolumn}{\begin{column}{\sepwidth}\end{column}}
 
@@ -96,15 +98,37 @@
 }
 
 \begin{frame}[t]
+
+\begin{columns}[t]
+
+\separatorcolumn
+\begin{column}{\doublewidth}
+\begin{block}{Column Top}
+\end{block}
+\end{column}
+
+\separatorcolumn
+
+\end{columns}
+
 \begin{columns}[t]
 \separatorcolumn
 
 \begin{column}{\colwidth}
     
     \begin{alertblock}{Summary}
+        \begin{itemize}
+            \item Use SGD rather than minibatch-EM
+        \end{itemize}
     \end{alertblock}
     
     \begin{block}{Column 1}
+    \end{block}
+
+    \begin{block}{Minibatch Expectation-Maximisation}
+    \end{block}
+
+    \begin{block}{Stochastic Gradient Descent}
     \end{block}
     
 \end{column}
