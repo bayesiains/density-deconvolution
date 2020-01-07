@@ -9,6 +9,7 @@ mvn = dist.multivariate_normal.MultivariateNormal
 
 
 class DeconvGMM(BaseGMM):
+    """Implementation of a deconvolving GMM fitted with standard EM."""
 
     def __init__(self, components, dimensions, epochs=1000,
                  w=1e-6, tol=1e-6, device=None):

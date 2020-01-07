@@ -12,7 +12,7 @@
 %     \usepackage[preprint]{neurips_2019}
 
 % to compile a camera-ready version, add the [final] option, e.g.:
-\usepackage{neurips_2019}
+\usepackage[final]{neurips_2019_ml4ps}
 
 % to avoid loading the natbib package, add option nonatbib:
 %     \usepackage[nonatbib]{neurips_2019}
@@ -109,8 +109,9 @@ The aim of extreme deconvolution is to perform density estimation on a noisy $d$
 \end{equation}
 We assume that $\bv_i$ can be modelled by a mixture of Gaussians with $K$ components,
 \begin{equation}
-p(\bv_i \mid \theta) = \sum_j^K \alpha_j \,\mathcal{N}(\bv \mid \bm_j, V_j), \quad \theta = \{\alpha_j, \bm_j, V_j\}_{j=1} ^ K.
+p(\bv_i \mid \theta) = \sum_j^K \alpha_j \,\mathcal{N}(\bv \mid \bm_j, V_j), \quad \theta = \{\alpha_j, \bm_j, V_j\}_{j=1} ^ K,
 \end{equation}
+parameterised by mixture weight $\alpha_j$, mean $\bm_j$ and covariance $V_j$.
 As the noise model is Gaussian and the model of the underlying density is a mixture of Gaussians, the probability of $\bx_i$ is also a Gaussian mixture.
 The total log-likehood of the model is
 \begin{equation}
@@ -231,7 +232,7 @@ Figure~\ref{fig:projection} shows a 2-D projection from an example model with $K
 \begin{figure}
   \centering
   \includegraphics[width=\textwidth]{figures/learning.pdf}
-  \caption{\textbf{Left}: Average training log-likelihood as a function of training epoch for models with $K=256$. Epochs rescaled by average training time. Error bars not visible. \textbf{Right}: Training time as a function of mixture components $K$. Error bars indicate $\pm$ 2 standard deviations.}
+  \caption{\textbf{Left}: Average training log-likelihood as a function of training on the Gaia subset for models with $K=256$. Epochs rescaled by average training time. Error bars not visible. \textbf{Right}: Training time as a function of mixture components $K$. Error bars indicate $\pm$ 2 standard deviations.}
   \label{fig:training}
 \end{figure}
 
@@ -257,6 +258,12 @@ This adds scope for hyperparameter optimisation to improve the log-likelihood.
 In this preliminary study the SGD method provided the best log-likelihood values, was faster to train, and scaled better with component size $K$.
 In addition, we found SGD to be more numerically stable than minibatch-EM during training.
 Both minibatch methods will allow us to fit larger models going forwards.
+
+\subsubsection*{Acknowledgments}
+We are grateful to David W. Hogg for providing us with the problem and advising us on the Gaia data.
+Our experiments made use of AstroPy~\citep{astropy:2013,astropy:2018}, corner.py~\citep{corner}, Matplotlib~\citep{Hunter:2007}, Numpy~\citep{numpy}, Pandas~\citep{mckinney-proc-scipy-2010}, PyTorch~\citep{paszke2017automatic} and Scikit-learn~\citep{scikit-learn}.
+This work was supported in part by the EPSRC Centre for Doctoral Training in Data Science, funded by the UK Engineering and Physical Sciences Research Council (grant EP/L016427/1) and the University of Edinburgh.
+
 
 % TODO again, always aim to question claims and have deep understanding. Is fast
 % to train per epoch and/or convergence? Could Adam be applied to the
@@ -311,7 +318,7 @@ Whilst we found this update worked better in practice than a direct implementati
 \label{apx:repro}
 
 Here we provide specific details of our experiments for reproducibility.
-Code used to run the experiments will be made available.
+Code used to run the experiments is available at \url{https://github.com/bayesiains/scalable_xd}.
 
 \subsection{Dataset}
 

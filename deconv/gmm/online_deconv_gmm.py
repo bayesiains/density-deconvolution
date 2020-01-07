@@ -6,6 +6,7 @@ from .util import minibatch_k_means
 
 
 class OnlineDeconvGMM(DeconvGMM):
+    """Implementation of a deconvolving GMM fitted with minibatch-EM."""
 
     def __init__(self, components, dimensions, epochs=1000, w=1e-6,
                  tol=1e-6, step_size=0.1, batch_size=100,

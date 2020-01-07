@@ -1,3 +1,4 @@
+"""Script to fit the SGD model."""
 import argparse
 import json
 import time

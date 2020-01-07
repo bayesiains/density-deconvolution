@@ -9,6 +9,7 @@ mvn = dist.multivariate_normal.MultivariateNormal
 
 
 class BaseGMM(ABC):
+    """ABC for GMMs fitted with EM-type methods."""
 
     def __init__(self, components, dimensions, epochs=100,
                  w=1e-6, tol=1e-9, device=None):
