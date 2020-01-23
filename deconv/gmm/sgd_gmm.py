@@ -168,7 +168,7 @@ class BaseSGDGMM(ABC):
                 self.optimiser.zero_grad()
 
                 log_prob = self.module(d)
-                loss = -1 * torch.sum(log_prob)
+                loss = -1 * torch.mean(log_prob)
 
                 train_loss += loss.item()
 
@@ -234,7 +234,7 @@ class BaseSGDGMM(ABC):
 
         for j, d in enumerate(loader):
             d = [a.to(self.device) for a in d]
-            log_prob += torch.sum(self.score(d)).item()
+            log_prob += torch.mean(self.score(d)).item()
 
         return log_prob
 
