@@ -116,9 +116,9 @@ class BaseSGDGMM(ABC):
             loader = data_utils.DataLoader(
                 data,
                 batch_size=None,
-                num_workers=8,
+                # num_workers=8,
                 sampler=data_utils.RandomSampler(data),
-                pin_memory=True
+                # pin_memory=True
             )
             init_data = copy.deepcopy(data)
             init_data.batch_size *= 16
@@ -126,25 +126,25 @@ class BaseSGDGMM(ABC):
             init_loader = data_utils.DataLoader(
                 init_data,
                 batch_size=None,
-                num_workers=8,
+                # num_workers=8,
                 sampler=data_utils.RandomSampler(init_data),
-                pin_memory=True
+                # pin_memory=True
             )
         else:
             loader = data_utils.DataLoader(
                 data,
                 batch_size=self.batch_size,
-                num_workers=8,
+                # num_workers=8,
                 shuffle=True,
-                pin_memory=True
+                # pin_memory=True
             )
 
             init_loader = data_utils.DataLoader(
                 data,
                 batch_size=16 * self.batch_size,
-                num_workers=8,
+                # num_workers=8,
                 shuffle=True,
-                pin_memory=True
+                # pin_memory=True
             )
 
         self.init_params(loader)
@@ -226,8 +226,8 @@ class BaseSGDGMM(ABC):
         loader = data_utils.DataLoader(
             dataset,
             batch_size=self.batch_size,
-            num_workers=4,
-            pin_memory=True
+            # num_workers=4,
+            # pin_memory=True
         )
 
         log_prob = 0

@@ -45,9 +45,9 @@ class BaseFlow(ABC):
         loader = data_utils.DataLoader(
             data,
             batch_size=self.batch_size,
-            num_workers=8,
+            # num_workers=8,
             shuffle=True,
-            pin_memory=True
+            # pin_memory=True
         )
 
         for i in range(self.epochs):
@@ -85,8 +85,8 @@ class BaseFlow(ABC):
         loader = data_utils.DataLoader(
             dataset,
             batch_size=self.batch_size,
-            num_workers=4,
-            pin_memory=True
+            # num_workers=4,
+            # pin_memory=True
         )
         log_prob = 0.0
 

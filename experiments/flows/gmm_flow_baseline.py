@@ -7,8 +7,8 @@ from deconv.gmm.sgd_gmm import SGDGMM
 
 D = 7
 K = 128
-N = 100000
-N_train = 80000
+N = 10000
+N_train = 8000
 
 weights, means, covars = torch.load(
     'results/variable_k/em_128_508798_params.pkl',
@@ -35,15 +35,15 @@ X_val = [X[N_train:]]
 device = torch.device('cuda')
 
 torch.set_default_tensor_type('torch.cuda.FloatTensor')
-torch.multiprocessing.set_start_method('spawn')
+# torch.multiprocessing.set_start_method('spawn')
 
 m = MAFlow(
     D,
     10,
-    40,
+    100,
     device=device
 )
 m.fit(X_train, val_data=X_val)
 
-gmm = SGDGMM(K, D, device=device, epochs=40, batch_size=256)
+gmm = SGDGMM(K, D, device=device, epochs=100, batch_size=256)
 gmm.fit(X_train, val_data=X_val, verbose=True)
