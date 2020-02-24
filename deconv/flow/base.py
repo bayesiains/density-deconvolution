@@ -8,14 +8,14 @@ from nsflow.nde.flows import Flow
 class BaseFlow(ABC):
     """ABC for flow-type density estimation."""
 
-    def __init__(self, dimensions, flow_steps, epochs, batch_size=256, device=None):
+    def __init__(self, dimensions, flow_steps, lr, epochs, batch_size=256, device=None):
 
         self.dimensions = dimensions
         self.flow_steps = flow_steps
         self.batch_size = batch_size
         self.epochs = epochs
         self.device = device
-        self.lr = 1e-3    
+        self.lr = lr   
         transform = self._create_transform()
 
         self.flow = nde.flows.Flow(
@@ -32,7 +32,7 @@ class BaseFlow(ABC):
         ])
 
     @abstractmethod
-    def _create_transform():
+    def _create_transform(context_features=None):
         pass
 
     def fit(self, data, val_data=None):

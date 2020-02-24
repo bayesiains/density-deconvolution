@@ -170,18 +170,19 @@ class BaseSGDGMM(ABC):
                 log_prob = self.module(d)
                 loss = -1 * torch.mean(log_prob)
 
-                train_loss += loss.item()
+                train_loss += torch.sum(log_prob).item()
 
                 n = d[0].shape[0]
                 loss += self.reg_loss(n, n_total)
 
                 loss.backward()
                 self.optimiser.step()
+            train_loss /= len(data)
 
             self.train_loss_curve.append(train_loss)
 
             if val_data:
-                val_loss = -1 * self.score_batch(val_data)
+                val_loss = self.score_batch(val_data) / len(val_data)
                 self.val_loss_curve.append(val_loss)
 
             self.scheduler.step()
@@ -234,7 +235,7 @@ class BaseSGDGMM(ABC):
 
         for j, d in enumerate(loader):
             d = [a.to(self.device) for a in d]
-            log_prob += torch.mean(self.score(d)).item()
+            log_prob += torch.sum(self.score(d)).item()
 
         return log_prob
 
