@@ -33,7 +33,7 @@ def fit_gaia_lim_sgd(datafile, use_cuda=False):
         10,
         device=device,
         batch_size=512,
-        epochs=50,
+        epochs=40,
         lr=1e-3
     )
     svi.fit(train_data, val_data=val_data)

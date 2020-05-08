@@ -6,102 +6,158 @@ import seaborn as sns
 
 from deconv.gmm.data import DeconvDataset
 from deconv.gmm.sgd_deconv_gmm import SGDDeconvGMM
-from deconv.flow.svi import SVIFLow
+from deconv.gmm.plotting import plot_covariance
+from deconv.flow.svi import SVIFlow
+
+from deconv.experiments.checks.data import generate_data
 
 sns.set()
 
 
-def check_svi(N, plot=False, device=None):
+K = 3
+D = 2
+N = 10000
 
-    K = 2
-    D = 2
+plot = True
+device = None
 
-    if not device:
-        device = torch.device('cpu')
+if not device:
+    device = torch.device('cpu')
 
-    m_1 = np.array([-0, 0])
-    C_1 = np.array([[10, 0], [0, 10]])
-    N_1 = np.array([[2, 0], [0, 2]])
+m_1 = np.array([0, 0])
+C_1 = np.array([
+    [0.01, 0],
+    [0, 1.5]
+])
 
-    m_2 = np.array([0, 0])
-    C_2 = np.array([[1, 0], [0, 1]])
-    N_2 = np.array([[2, 0], [0, 2]])
+m_2 = np.array([3, 4.5])
+C_2 = np.array([
+    [1, 0],
+    [0, 0.01]
+])
 
-    X_train = np.zeros((2 * N, 2))
-    nc_train = np.zeros((2 * N, 2, 2))
+m_3 = np.array([3, -4.5])
+C_3 = np.array([
+    [1, 0],
+    [0, 0.01]
+])
 
-    X_train[:N] = np.random.multivariate_normal(m_1, C_1, size=N)
-    X_train[:N] += np.random.multivariate_normal([0, 0], N_1, size=N)
-    nc_train[:N, :, :] = np.linalg.cholesky(N_1)
+# m_4 = np.array([6, 0])
+# C_4 = np.array([
+#     [0.01, 0],
+#     [0, 1]
+# ])
 
-    X_train[N:] = np.random.multivariate_normal(m_2, C_2, size=N)
-    X_train[N:] += np.random.multivariate_normal([0, 0], N_2, size=N)
-    nc_train[N:, :, :] = np.linalg.cholesky(N_2)
+X_1 = np.random.multivariate_normal(m_1, C_1, N)
+X_2 = np.random.multivariate_normal(m_2, C_2, N)
+X_3 = np.random.multivariate_normal(m_3, C_3, N)
+# X_4 = np.random.multivariate_normal(m_4, C_4, N)
 
-    X_test = np.zeros((2 * N, 2))
-    nc_test = np.zeros((2 * N, 2, 2))
+X = np.concatenate((X_1, X_2, X_3), axis=0)
 
-    X_test[:N] = np.random.multivariate_normal(m_1, C_1, size=N)
-    X_test[:N] += np.random.multivariate_normal([0, 0], N_1, size=N)
-    nc_test[:N, :, :] = np.linalg.cholesky(N_1)
+S = np.array([
+    [0.1, 0],
+    [0, 2]
+])
 
-    X_test[N:] = np.random.multivariate_normal(m_2, C_2, size=N)
-    X_test[N:] += np.random.multivariate_normal([0, 0], N_2, size=N)
-    nc_test[N:, :, :] = np.linalg.cholesky(N_2)
+idx = np.random.permutation(3 * N)
 
-    train_data = DeconvDataset(
-        torch.Tensor(X_train.reshape(-1, D).astype(np.float32)),
-        torch.Tensor(
-            nc_train.reshape(-1, D, D).astype(np.float32)
-        )
+X = X[idx, :]
+
+X_noisy = X + np.random.multivariate_normal([0, 0], S, 3 * N)
+
+S = np.repeat([S], 3 * N, axis=0) 
+
+fig, ax = plt.subplots()
+ax.scatter(X_noisy[:, 0], X_noisy[:, 1])
+ax.scatter(X[:, 0], X[:, 1])
+ax.set_xlim(-20, 20)
+ax.set_ylim(-20, 20)
+plt.show()
+
+X_train = X_noisy[:(2 * N), :]
+X_test = X_noisy[(2 * N):, :]
+
+nc_train = S[:(2 * N), :, :]
+nc_test = S[(2 * N):, :, :]
+
+train_data = DeconvDataset(
+    torch.Tensor(X_train.reshape(-1, D).astype(np.float32)),
+    torch.Tensor(
+        nc_train.reshape(-1, D, D).astype(np.float32)
+    )
+)
+
+test_data = DeconvDataset(
+    torch.Tensor(X_test.reshape(-1, D).astype(np.float32)),
+    torch.Tensor(
+        nc_test.reshape(-1, D, D).astype(np.float32)
+    )
+)
+
+svi = SVIFlow(
+    D,
+    5,
+    device=device,
+    batch_size=512,
+    epochs=50,
+    lr=1e-4
+)
+svi.fit(train_data, val_data=None)
+
+test_log_prob = svi.score_batch(test_data, log_prob=True)
+
+print('Test log prob: {}'.format(test_log_prob / len(test_data)))
+
+gmm = SGDDeconvGMM(
+    K,
+    D,
+    device=device,
+    batch_size=256,
+    epochs=50,
+    lr=1e-1
+)
+gmm.fit(train_data, val_data=test_data, verbose=True)
+test_log_prob = gmm.score_batch(test_data)
+print('Test log prob: {}'.format(test_log_prob / len(test_data)))
+
+if plot:
+
+    x_width = 200
+    y_width = 200
+
+    x = np.linspace(-5, 10, num=x_width, dtype=np.float32)
+    y = np.linspace(-15, 15, num=y_width, dtype=np.float32)
+
+    xx, yy = np.meshgrid(x, y)
+
+    d = torch.tensor(
+        np.concatenate((xx[:, :, None], yy[:, :, None]), axis=-1)
     )
 
-    test_data = DeconvDataset(
-        torch.Tensor(X_test.reshape(-1, D).astype(np.float32)),
-        torch.Tensor(
-            nc_test.reshape(-1, D, D).astype(np.float32)
-        )
+    z = np.zeros((y_width, x_width))
+
+    with torch.no_grad():
+        for i in range(x_width):
+            z[i, :] = svi.model._prior.log_prob(d[:, i, :]).detach().numpy()
+
+    fig, ax = plt.subplots()
+
+    ax.imshow(np.exp(z), extent=[-5, 10, -15, 15], origin='lower')
+
+    target = (
+        torch.Tensor([[4.0, 0.0]]),
+        torch.cholesky(torch.Tensor([[
+            [0.1, 0],
+            [0, 2]
+        ]]))
     )
+    ctx = svi.model._inputs_encoder(target)
+    posterior_samples = svi.model.encode(
+        ctx, num_samples=1000
+    ).detach().numpy()
 
-    svi = SVIFLow(
-        D,
-        5,
-        device=device,
-        batch_size=512,
-        epochs=50,
-        lr=1e-3
-    )
-    svi.fit(train_data, val_data=None)
-
-    test_log_prob = svi.score_batch(test_data, log_prob=True)
-
-    print('Test log prob: {}'.format(test_log_prob / len(test_data)))
-
-    gmm = SGDDeconvGMM(
-        K,
-        D,
-        device=device,
-        batch_size=256,
-        epochs=50,
-        lr=1e-1
-    )
-    gmm.fit(train_data, val_data=test_data, verbose=True)
-    test_log_prob = gmm.score_batch(test_data)
-    print('Test log prob: {}'.format(test_log_prob / len(test_data)))
-
-    if plot:
-        prior_samples = svi.model._prior.sample(1000).detach().numpy()
-
-        fig, ax = plt.subplots()
-
-        ax.scatter(X_train[:, 0], X_train[:, 1], alpha=0.5)
-
-        ax.scatter(prior_samples[:, 0], prior_samples[:, 1])
-        ax.set_xlim(-20, 20)
-        ax.set_ylim(-20, 20)
-        plt.show()
+    plt.show()
 
 
-if __name__ == '__main__':
-    N = 5000
-    check_svi(N, plot=True)
+

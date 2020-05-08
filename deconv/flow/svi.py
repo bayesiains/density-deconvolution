@@ -9,10 +9,12 @@ from .distributions import DeconvGaussian
 from .maf import MAFlow
 from .nn import DeconvInputEncoder
 
-class SVIFLow(MAFlow):
+from ..utils.sampling import minibatch_sample
+
+class SVIFlow(MAFlow):
 
     def __init__(self, dimensions, flow_steps, lr, epochs, context_size=64,
-                 batch_size=256, kl_warmup=0.1, kl_init_factor=0.5,
+                 batch_size=256, kl_warmup=0.2, kl_init_factor=0.5,
                  device=None):
         super().__init__(
             dimensions, flow_steps, lr, epochs, batch_size, device
@@ -90,17 +92,20 @@ class SVIFLow(MAFlow):
         loader = data_utils.DataLoader(
             data,
             batch_size=self.batch_size,
-            shuffle=True
+            shuffle=True,
+            num_workers=4,
+            pin_memory=True
         )
 
         batches = len(loader)
 
         max_steps = self.epochs * batches
 
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimiser,
-            max_steps
-        )
+        # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        #    optimiser,
+        #    max_steps
+        # )
+        scheduler=None
 
         for i in range(self.epochs):
 
@@ -116,18 +121,22 @@ class SVIFLow(MAFlow):
 
                 step = i * batches + j
 
-                elbo = self.model.stochastic_elbo(
+                d[1] = torch.cholesky(d[1])
+
+                torch.set_default_tensor_type('torch.cuda.FloatTensor')
+                elbo = self.model.log_prob_lower_bound(
                     d,
-                    num_samples=1,
-                    kl_multiplier=self._kl_factor(step, max_steps)
+                    num_samples=50
                 )
+                torch.set_default_tensor_type(torch.FloatTensor)
 
                 train_loss += torch.sum(elbo).item()
                 loss = -1 * torch.mean(elbo)
                 loss.backward()
                 optimiser.step()
-
-                scheduler.step(step)
+                
+                if scheduler:
+                    scheduler.step()
 
             train_loss /= len(data)
 
@@ -144,15 +153,21 @@ class SVIFLow(MAFlow):
 
     def score(self, data, log_prob=False):
         with torch.no_grad():
+            self.model.eval()
+            data[1] = torch.cholesky(data[1])
+            torch.set_default_tensor_type(torch.cuda.FloatTensor)
             if log_prob:
-                return self.model.log_prob_lower_bound(data)
+                return self.model.log_prob_lower_bound(data, num_samples=100)
             else:
                 return self.model.stochastic_elbo(data)
+            torch.set_default_tensor_type(torch.FloatTensor)
 
     def score_batch(self, dataset, log_prob=False):
         loader = data_utils.DataLoader(
             dataset,
-            batch_size=self.batch_size
+            batch_size=self.batch_size,
+            num_workers=4,
+            pin_memory=True
         )
         score = 0.0
 
@@ -161,3 +176,15 @@ class SVIFLow(MAFlow):
             score += torch.sum(self.score(d, log_prob)).item()
 
         return score
+
+    def sample_prior(self, num_samples, device=torch.device('cpu')):
+        return minibatch_sample(
+            self.model._prior.sample,
+            num_samples,
+            self.batch_size,
+            device
+        )
+        
+       
+            
+    

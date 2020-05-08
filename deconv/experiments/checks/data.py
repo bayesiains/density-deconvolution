@@ -2,12 +2,12 @@ import numpy as np
 
 
 def generate_data(D, K, N):
-    means = (np.random.rand(K, D) * 2000) - 1000
+    means = (np.random.rand(K, D) * 20) - 10
     q = (2 * np.random.randn(K, D, D))
     covars = np.matmul(q.swapaxes(1, 2), q)
 
     qn = (0.5 * np.random.randn(2 * N, K, D, D))
-    noise_covars = np.matmul(qn.swapaxes(2, 3), qn)
+    noise_covars = np.matmul(qn.swapaxes(2, 3), qn) + 1e-3 * np.eye(D)
 
     X = np.empty((2 * N, K, D))
 
