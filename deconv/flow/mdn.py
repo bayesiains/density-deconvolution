@@ -5,11 +5,65 @@ C. M. Bishop, "Mixture Density Networks", NCRG Report (1994)
 
 import numpy as np
 import torch
+import math
 
 from torch import nn
 from torch.nn import functional as F
 
 from nsflow import utils
+
+class MultivariateGaussianDiagonalMDN(nn.Module):
+    def __init__(self,
+                 features,
+                 context_features,
+                 hidden_features,
+                 hidden_net,
+                 num_components):
+
+        super().__init__()
+
+        self._features = features
+        self._context_features = context_features
+        self._hidden_features = hidden_features
+        self._num_components = num_components
+
+        self._hidden_net = hidden_net
+        self._logits_layer = nn.Linear(hidden_features, num_components)
+        self._means_layer = nn.Linear(hidden_features, num_components * features)
+        self._logvars_layer = nn.Linear(hidden_features, num_components * features)
+
+    def get_mixture_components(self, context):
+        h = self._hidden_net(context)
+
+        logits = self._logits_layer(h)
+        means = self._means_layer(h).view(-1, self._num_components, self._features)
+        logvars = self._logvars_layer(h).view(-1, self.num_components, self._features)
+
+        return logits, means, logvars
+
+    def log_prob(self, inputs, context):
+        logits, means, logvars = self.get_mixture_components(context)
+
+        tmp = torch.zeros(inputs.shape[0], self.components)
+        for i in self.components:
+            tmp[:, i] = torch.log(F.softmax(logits[:, i], dim=-1)) - \
+                        0.5 * torch.sum(np.log(2*math.pi) + logvars[:, i] + (x - means[:, i])**2 / logvars[:, i].exp(), dim=1)
+
+        return torch.logsumexp(tmp)
+
+    def sample(self, context, num_samples=1):
+        batch_size = context.shape[0]
+
+        logits, means, logvars = self.get_mixture_components(context)
+        coins = torch.distributions.categorical.Categorical(F.softmax(logits, dim=-1)).sample(num_samples)
+
+        ix = utils.repeat_rows(torch.arange(batch_size), num_samples)
+
+        chosen_means = means[ix, choices, :]
+        chosen_logvars = logvars[ix, choices, :]
+
+        samples = chosen_means + torch.exp(0.5 * chosen_logvars) * torch.randn(batch_size, num_samples)
+        return samples
 
 
 class MultivariateGaussianMDN(nn.Module):
