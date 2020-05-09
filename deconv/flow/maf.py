@@ -1,5 +1,5 @@
 import torch
-from nsflow.nde import transforms
+from nflows import transforms
 
 from .base import BaseFlow
 

@@ -6,7 +6,7 @@ import time
 import numpy as np
 import torch
 
-from deconv.flow.svi import SVIFLow
+from deconv.flow.svi import SVIFlow
 from deconv.gmm.data import DeconvDataset
 
 
@@ -28,13 +28,13 @@ def fit_gaia_lim_sgd(datafile, use_cuda=False):
         torch.Tensor(data['L_val'])
     )
 
-    svi = SVIFLow(
+    svi = SVIFlow(
         7,
-        10,
+        5,
         device=device,
         batch_size=512,
         epochs=40,
-        lr=1e-3
+        lr=1e-4
     )
     svi.fit(train_data, val_data=val_data)
 

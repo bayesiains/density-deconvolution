@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 
 import torch
 import torch.utils.data as data_utils
-from nsflow import nde
-from nsflow.nde.flows import Flow
+
+from nflows import distributions, flows, transforms
 
 class BaseFlow(ABC):
     """ABC for flow-type density estimation."""
@@ -18,17 +18,17 @@ class BaseFlow(ABC):
         self.lr = lr   
         transform = self._create_transform()
 
-        self.flow = nde.flows.Flow(
+        self.flow = flows.Flow(
             transform,
-            nde.distributions.StandardNormal((self.dimensions,))
+            distributions.StandardNormal((self.dimensions,))
         )
 
         self.flow.to(self.device)
 
     def _create_linear_transform(self):
-        return nde.transforms.CompositeTransform([
-            nde.transforms.RandomPermutation(features=self.dimensions),
-            nde.transforms.LULinear(self.dimensions, identity_init=True)
+        return transforms.CompositeTransform([
+            transforms.RandomPermutation(features=self.dimensions),
+            transforms.LULinear(self.dimensions, identity_init=True)
         ])
 
     @abstractmethod

@@ -1,13 +1,15 @@
 import torch
 import torch.utils.data as data_utils
+from torch.nn.utils import clip_grad_norm_
 
-from nsflow.nde import flows, transforms
-from nsflow.nde.distributions import ConditionalDiagonalNormal, StandardNormal
-from nsflow.vae import VariationalAutoencoder
+from nflows import flows, transforms
+from nflows.distributions import ConditionalDiagonalNormal, StandardNormal
 
 from .distributions import DeconvGaussian
 from .maf import MAFlow
 from .nn import DeconvInputEncoder
+from .vae import VariationalAutoencoder
+
 
 from ..utils.sampling import minibatch_sample
 
@@ -121,7 +123,7 @@ class SVIFlow(MAFlow):
 
                 step = i * batches + j
 
-                d[1] = torch.cholesky(d[1])
+                # d[1] = torch.cholesky(d[1])
 
                 torch.set_default_tensor_type('torch.cuda.FloatTensor')
                 elbo = self.model.log_prob_lower_bound(
@@ -154,7 +156,7 @@ class SVIFlow(MAFlow):
     def score(self, data, log_prob=False):
         with torch.no_grad():
             self.model.eval()
-            data[1] = torch.cholesky(data[1])
+            # data[1] = torch.cholesky(data[1])
             torch.set_default_tensor_type(torch.cuda.FloatTensor)
             if log_prob:
                 return self.model.log_prob_lower_bound(data, num_samples=100)

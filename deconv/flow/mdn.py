@@ -10,7 +10,7 @@ import math
 from torch import nn
 from torch.nn import functional as F
 
-from nsflow import utils
+from nflows import utils
 
 class MultivariateGaussianDiagonalMDN(nn.Module):
     def __init__(self,

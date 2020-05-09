@@ -1,6 +1,6 @@
 from torch.distributions import MultivariateNormal
 
-from nsflow.nde import distributions
+from nflows import distributions
 
 
 class DeconvGaussian(distributions.Distribution):
