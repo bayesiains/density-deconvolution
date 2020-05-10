@@ -13,6 +13,35 @@ from .vae import VariationalAutoencoder
 
 from ..utils.sampling import minibatch_sample
 
+class SVIFlowToy(MAFlow): 
+    def __init__(self, 
+                 dimensions, 
+                 objective,
+                 flow_steps_prior,
+                 flow_steps_posterior,
+                 n_posterior_flows,
+                 warmup_posterior_flow_diversity,
+                 warmup_kl,
+                 kl_init,
+                 posterior_context_size,
+                 batch_size,
+                 device):
+
+        super(MAFlow, self).__init__()
+
+        self.dimensions = dimensions
+        self.objective = objective
+        self.flow_steps_prior = flow_steps_prior
+        self.flow_steps_posterior = flow_steps_posterior
+        self.n_posterior_flows = n_posterior_flows
+        self.warmup_posterior_flow_diversity = warmup_posterior_flow_diversity
+        self.warmup_kl = warmup_kl
+        self.kl_init = kl_init
+        self.posterior_context_size = posterior_context_size 
+        self.batch_size = batch_size
+        self.device = device
+
+
 class SVIFlow(MAFlow):
 
     def __init__(self, dimensions, flow_steps, lr, epochs, context_size=64,
