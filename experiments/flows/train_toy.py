@@ -20,7 +20,7 @@ from deconv.gmm.data import DeconvDataset
 parser = argparse.ArgumentParser()
 parser.add_argument('--data', type=str, default='mixture1')
 parser.add_argument('--covar', type=str, default='fixed_diagonal_covar1')
-parser.add_argument('--n_train_points', type=int, default=int(1e5))
+parser.add_argument('--n_train_points', type=int, default=int(1e4))
 parser.add_argument('--n_test_points', type=int, default=int(1e3))
 parser.add_argument('--n_eval_points', type=int, default=int(1e3))
 parser.add_argument('--eval_based_scheduler', type=str, default='10,20,30')
@@ -28,7 +28,7 @@ parser.add_argument('--posterior_mdn', type=str, default='64,64')
 parser.add_argument('--lr', type=float, default=1e-3)
 parser.add_argument('--seed', type=int, default=42)
 parser.add_argument('--batch_size', type=int, default=100)
-parser.add_argument('--ds_size', type=int, required=True)
+parser.add_argument('--test_batch_size', type=int, default=100)
 parser.add_argument('--gpu', type=int, default=0)
 parser.add_argument('--dir', type=str, default=None)
 parser.add_argument('--name', type=str, default=None)
@@ -42,8 +42,8 @@ parser.add_argument('--posterior_context_size', type=int, default=64)
 parser.add_argument('--n_epochs', type=int, default=int(1e4))
 parser.add_argument('--objective', type=str, default='elbo', choices=['elbo', 'iwae', 'iwae_sumo'])
 parser.add_argument('--K', type=int, default=1, help='# of samples for objective')
-parser.add_argument('--viz_freq', type=int, default=100)
-parser.add_argument('--test_freq', type=int, default=100)
+parser.add_argument('--viz_freq', type=int, default=10)
+parser.add_argument('--test_freq', type=int, default=10)
 args = parser.parse_args()
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -63,6 +63,15 @@ if args.name is None:
 # if os.path.isfile(args.dir + 'logs/' + name + '.log'):
 #   raise ValueError('This file already exists.')
 
+if not os.path.exists(args.dir + 'logs/'):
+	os.makedirs(args.dir + 'logs/')
+
+if not os.path.exists(args.dir + 'out/'):
+	os.makedirs(args.dir + 'out/')
+
+if not os.path.exists(args.dir + 'models/'):
+	os.makedirs(args.dir + 'models/')
+
 logger = get_logger(logpath=(args.dir + 'logs/' + name + '.log'), filepath=os.path.abspath(__file__))
 logger.info(args)
 
@@ -80,6 +89,16 @@ def lr_scheduler(n_epochs_not_improved, optimzer, scheduler, logger):
 	message = 'New learning rate: %f' % lr
 	logger.info(message)
 
+def compute_eval_loss(model, eval_loader, device, n_points):
+	loss = 0
+	for _, data in enumerate(eval_loader):
+		data[0] = data[0].to(device)
+		data[1] = data[1].to(device)
+
+		loss += -model.score(data).sum()
+
+	return loss / n_points
+
 def main():
 	train_data = torch.from_numpy(data_gen(args.data, args.n_train_points)[0].astype(np.float32))
 	train_covar = torch.from_numpy(covar_gen(args.covar, args.n_train_points).astype(np.float32))
@@ -90,6 +109,8 @@ def main():
 
 	eval_data = torch.from_numpy(data_gen(args.data, args.n_eval_points)[0].astype(np.float32))
 	eval_covar = torch.from_numpy(covar_gen(args.covar, args.n_eval_points).astype(np.float32))
+	eval_dataset = DeconvDataset(eval_data, eval_covar)
+	eval_loader = DataLoader(eval_dataset, batch_size=args.test_batch_size, shuffle=False)
 
 	model = SVIFlowToy(dimensions=2,
 					   objective=args.objective,
@@ -104,24 +125,30 @@ def main():
 					   batch_size=args.batch_size,
 					   device=device)
 
+	optimizer = torch.optim.Adam(params=model.parameters(), lr=args.lr)
+
 
 	#training
 	scheduler =  list(map(int, args.eval_based_scheduler.split(',')))
 	epoch = 0
 	best_model = copy.deepcopy(model.state_dict())
-	best_eval_loss = -model.score(eval_data.to(device), log_prob=False)
+
+	best_eval_loss = compute_eval_loss(model, eval_loader, device, args.n_eval_points)
 	n_epochs_not_improved = 0
 
 	model.train()
 	while n_epochs_not_improved < scheduler[-1] and epoch < args.n_epochs:
 		for batch_idx, data in enumerate(train_loader):
-		    loss = -model.log_prob(data.to(device)).mean()
-		    optimizer.zero_grad()
-		    loss.backward(retain_graph=True)
-		    optimizer.step()
+			data[0] = data[0].to(device)
+			data[1] = data[1].to(device)
+
+			loss = -model.score(data).mean()
+			optimizer.zero_grad()
+			loss.backward(retain_graph=True)
+			optimizer.step()
 
 		model.eval()
-		eval_loss = -model.log_prob(eval_data.to(device)).mean()
+		eval_loss = compute_eval_loss(model, eval_loader, device, args.n_eval_points)
 
 		if eval_loss < best_eval_loss:
 		    best_model = copy.deepcopy(model.state_dict())
@@ -134,7 +161,7 @@ def main():
 		lr_scheduler(n_epochs_not_improved, optimizer, scheduler, logger)
 
 		if (epoch + 1) % args.test_freq == 0:
-			test_loss_clean = -model.prior.log_prob(test_data_clean.to(device)).mean()
+			test_loss_clean = -model.model._prior.log_prob(test_data_clean.to(device)).mean()
 
 			message = 'Epoch %s:' % (epoch + 1), 'train loss = %.5f' % loss, 'eval loss = %.5f' % eval_loss, 'train loss (clean) = %.5f' % test_loss_clean
 			logger.info(message)
@@ -144,7 +171,7 @@ def main():
 			logger.info(message)
 
 		if (epoch + 1) % args.viz_freq == 0:
-			samples = model.prior.sample(10000).detach().cpu().numpy()
+			samples = model.model._prior.sample(1000).detach().cpu().numpy()
 			corner.hist2d(samples[:, 0], samples[:, 1])
 
 			fig_filename = args.dir + 'out/' + name + '_fig_' + str(epoch + 1) + '.png'
@@ -152,6 +179,7 @@ def main():
 			plt.close()
 
 		model.train()
+		epoch += 1
 
 	torch.save(model.state_dict(), args.dir + 'models/' + name + '.model')
 	logger.info('Training has finished.')

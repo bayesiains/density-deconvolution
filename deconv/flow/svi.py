@@ -29,7 +29,7 @@ class SVIFlowToy(nn.Module):
                  posterior_context_size,
                  batch_size,
                  device,
-                 act_fun=torch.nn.ReLU()):
+                 act_fun=nn.functional.relu):
     
         super(SVIFlowToy, self).__init__()
 
@@ -53,23 +53,30 @@ class SVIFlowToy(nn.Module):
                                             inputs_encoder=self._create_input_encoder()).to(device)
 
     def _create_approximate_posterior(self):
+        idx = torch.tril_indices(self.dimensions, self.dimensions)
+        self.idx = (idx[0], idx[1])
+
+        input_size = int(self.dimensions + self.dimensions * (self.dimensions + 1) / 2)
+
         mdn_hidden = nn.ModuleList()
-        mdn_hidden.append(nn.Linear(self.dimensions, self.posterior_mdn[0]))
+        mdn_hidden.append(nn.Linear(input_size, self.posterior_mdn[0]))
 
         for h0, h1 in zip(self.posterior_mdn[:-1], self.posterior_mdn[1:]):
-            mdn_hidden.append(nn.Linear(h0, h1, ))
-            mdn_hidden.append(self.act_fun)
+            mdn_hidden.append(nn.Linear(h0, h1))
 
-        diagonal_mdn = MultivariateGaussianDiagonalMDN(self.dimensions,
-                                                       self.dimensions,
-                                                       self.posterior_mdn[-1],
-                                                       nn.Sequential(*mdn_hidden),
-                                                       self.n_posterior_flows)
+        print(mdn_hidden)
+
+        self.diagonal_mdn = MultivariateGaussianDiagonalMDN(self.dimensions,
+                                                            input_size,
+                                                            self.posterior_mdn[-1],
+                                                            mdn_hidden,
+                                                            self.n_posterior_flows,
+                                                            self.act_fun)
 
         posterior_transform = self._create_transform(self.flow_steps_posterior, self.posterior_context_size)
 
         return flows.Flow(transforms.InverseTransform(posterior_transform),
-                          diagonal_mdn)
+                          self.diagonal_mdn)
 
     def _create_prior(self):
         self.transform = self._create_transform(self.flow_steps_prior)
@@ -82,7 +89,12 @@ class SVIFlowToy(nn.Module):
         return DeconvGaussian()
 
     def _create_input_encoder(self):
-        return DeconvInputEncoder(self.dimensions, self.posterior_context_size)
+        def input_encoder(data):
+            w, noise_covar = data
+            x = torch.cat((w, noise_covar[:, self.idx[0], self.idx[1]]), dim=1)
+            return self.diagonal_mdn.get_context(x)
+
+        return input_encoder
 
     def _create_linear_transform(self):
         return transforms.CompositeTransform([transforms.RandomPermutation(features=self.dimensions),
@@ -103,6 +115,16 @@ class SVIFlowToy(nn.Module):
                                                               activation=torch.nn.functional.relu,
                                                               dropout_probability=0.0,
                                                               use_batch_norm=False)
+
+    def score(self, data):
+
+        self.model.eval()
+        if self.objective == 'iwae':
+            return self.model.log_prob_lower_bound(data, num_samples=10)
+
+        elif self.objective == 'elbo':
+            return self.model.stochastic_elbo(data)
+        
 
 
 class SVIFlow(MAFlow):
