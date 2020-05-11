@@ -7,12 +7,14 @@ import copy
 import os
 import corner
 from torch.utils.data import DataLoader
+import argparse
 
 matplotlib.use('agg')
 
-from deconv.lib.make_2d_toy_data import data_gen
-from deconv.lib.make_2d_toy_noise_covar import covar_gen
-from deconv.flow.svi import SVIFlow
+from deconv.utils.make_2d_toy_data import data_gen
+from deconv.utils.make_2d_toy_noise_covar import covar_gen
+from deconv.utils.misc import get_logger
+from deconv.flow.svi import SVIFlowToy
 from deconv.gmm.data import DeconvDataset
 
 parser = argparse.ArgumentParser()
@@ -22,6 +24,7 @@ parser.add_argument('--n_train_points', type=int, default=int(1e5))
 parser.add_argument('--n_test_points', type=int, default=int(1e3))
 parser.add_argument('--n_eval_points', type=int, default=int(1e3))
 parser.add_argument('--eval_based_scheduler', type=str, default='10,20,30')
+parser.add_argument('--posterior_mdn', type=str, default='64,64')
 parser.add_argument('--lr', type=float, default=1e-3)
 parser.add_argument('--seed', type=int, default=42)
 parser.add_argument('--batch_size', type=int, default=100)
@@ -51,13 +54,16 @@ if torch.cuda.is_available():
 if args.dir is None:
 	args.dir = 'toy/' + str(args.objective) + '/' + str(args.data) + '/' + str(args.covar) + '/'
 
+	if not os.path.exists(args.dir):
+		os.makedirs(args.dir)
+
 if args.name is None:
-	name = 'logs/seed_' + str(args.seed)
+	name = 'seed_' + str(args.seed)
 
-if os.path.isfile(args.dir + 'logs/' + name + '.log'):
-  raise ValueError('This file already exists.')
+# if os.path.isfile(args.dir + 'logs/' + name + '.log'):
+#   raise ValueError('This file already exists.')
 
-logger = utils_misc.get_logger(logpath=(args.dir + 'logs/' + name + '.log'), filepath=os.path.abspath(__file__))
+logger = get_logger(logpath=(args.dir + 'logs/' + name + '.log'), filepath=os.path.abspath(__file__))
 logger.info(args)
 
 torch.manual_seed(args.seed)
@@ -75,27 +81,28 @@ def lr_scheduler(n_epochs_not_improved, optimzer, scheduler, logger):
 	logger.info(message)
 
 def main():
-	train_data = torch.from_numpy(data_gen(args.data, args.n_train_points).astype(np.float32))
+	train_data = torch.from_numpy(data_gen(args.data, args.n_train_points)[0].astype(np.float32))
 	train_covar = torch.from_numpy(covar_gen(args.covar, args.n_train_points).astype(np.float32))
 	train_dataset = DeconvDataset(train_data, train_covar)
 	train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
 
-	test_data_clean = torch.from_numpy(data_gen(args.data, args.n_test_points).astype(np.float32)) 
+	test_data_clean = torch.from_numpy(data_gen(args.data, args.n_test_points)[0].astype(np.float32)) 
 
-	eval_data = torch.from_numpy(data_gen(args.data, args.n_eval_points).astype(np.float32))
+	eval_data = torch.from_numpy(data_gen(args.data, args.n_eval_points)[0].astype(np.float32))
 	eval_covar = torch.from_numpy(covar_gen(args.covar, args.n_eval_points).astype(np.float32))
 
-	model = SVIFlow(dimensions=2,
-					objective=args.objective,
-					flow_steps_prior=args.flow_steps_prior,
-					flow_steps_posterior=args.flow_steps_posterior,
-					n_posterior_flows=args.n_posterior_flows,
-					warmup_posterior_flow_diversity=args.warmup_posterior_flow_diversity,
-					warmup_kl=args.warmup_kl,
-					kl_init=args.kl_init,
-					posterior_context_size=args.posterior_context_size,
-					batch_size=args.batch_size,
-					device=device)
+	model = SVIFlowToy(dimensions=2,
+					   objective=args.objective,
+					   flow_steps_prior=args.flow_steps_prior,
+					   flow_steps_posterior=args.flow_steps_posterior,
+					   n_posterior_flows=args.n_posterior_flows,
+					   posterior_mdn = list(map(int, args.posterior_mdn.split(','))),
+					   warmup_posterior_flow_diversity=args.warmup_posterior_flow_diversity,
+					   warmup_kl=args.warmup_kl,
+					   kl_init=args.kl_init,
+					   posterior_context_size=args.posterior_context_size,
+					   batch_size=args.batch_size,
+					   device=device)
 
 
 	#training
