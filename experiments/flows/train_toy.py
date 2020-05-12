@@ -14,7 +14,7 @@ import argparse
 from deconv.utils.make_2d_toy_data import data_gen
 from deconv.utils.make_2d_toy_noise_covar import covar_gen
 from deconv.utils.misc import get_logger
-from deconv.flow.svi import SVIFlowToy #, SVIFlowToyNoise
+from deconv.flow.svi import SVIFlowToy, SVIFlowToyNoise
 from deconv.gmm.data import DeconvDataset
 
 parser = argparse.ArgumentParser()
@@ -215,7 +215,7 @@ def main():
 				test_loss_clean = -model.model._prior.log_prob(test_data_clean.to(device)).mean()
 
 			else:
-				test_loss_clean = -mode.model._likelihood.log_prob(test_data_clean.to(device)).mean()
+				test_loss_clean = -model.model._likelihood.log_prob(test_data_clean.to(device)).mean()
 
 			message = 'Epoch %s:' % (epoch + 1), 'train loss = %.5f' % loss, 'eval loss = %.5f' % eval_loss, 'train loss (clean) = %.5f' % test_loss_clean
 			logger.info(message)
@@ -225,7 +225,12 @@ def main():
 			logger.info(message)
 
 		if (epoch + 1) % args.viz_freq == 0:
-			samples = model.model._prior.sample(1000).detach().cpu().numpy()
+			if args.infer == 'true_data':
+				samples = model.model._prior.sample(1000).detach().cpu().numpy()
+
+			else:
+				samples = model.model._likelihood.sample(1000).detach().cpu().numpy()
+				
 			corner.hist2d(samples[:, 0], samples[:, 1])
 
 			fig_filename = args.dir + 'out/' + name + '_fig_' + str(epoch + 1) + '.png'
