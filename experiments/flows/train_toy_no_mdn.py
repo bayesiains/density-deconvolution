@@ -180,63 +180,63 @@ def main():
 	best_eval_loss = compute_eval_loss(model, eval_loader, device, args.n_eval_points)
 	n_epochs_not_improved = 0
 
-	# model.train()
-	# while n_epochs_not_improved < scheduler[-1] and epoch < args.n_epochs:
-	# 	for batch_idx, data in enumerate(train_loader):
-	# 		data[0] = data[0].to(device)
-	# 		data[1] = data[1].to(device)
+	model.train()
+	while n_epochs_not_improved < scheduler[-1] and epoch < args.n_epochs:
+		for batch_idx, data in enumerate(train_loader):
+			data[0] = data[0].to(device)
+			data[1] = data[1].to(device)
 
-	# 		loss = -model.score(data).mean()
-	# 		optimizer.zero_grad()
-	# 		loss.backward(retain_graph=True)
-	# 		optimizer.step()
+			loss = -model.score(data).mean()
+			optimizer.zero_grad()
+			loss.backward(retain_graph=True)
+			optimizer.step()
 
-	# 	model.eval()
-	# 	eval_loss = compute_eval_loss(model, eval_loader, device, args.n_eval_points)
+		model.eval()
+		eval_loss = compute_eval_loss(model, eval_loader, device, args.n_eval_points)
 
-	# 	if eval_loss < best_eval_loss:
-	# 	    best_model = copy.deepcopy(model.state_dict())
-	# 	    best_eval_loss = eval_loss
-	# 	    n_epochs_not_improved = 0
+		if eval_loss < best_eval_loss:
+		    best_model = copy.deepcopy(model.state_dict())
+		    best_eval_loss = eval_loss
+		    n_epochs_not_improved = 0
 
-	# 	else:
-	# 	    n_epochs_not_improved += 1
+		else:
+		    n_epochs_not_improved += 1
 
-	# 	lr_scheduler(n_epochs_not_improved, optimizer, scheduler, logger)
+		lr_scheduler(n_epochs_not_improved, optimizer, scheduler, logger)
 
-	# 	if (epoch + 1) % args.test_freq == 0:
-	# 		if args.infer == 'true_data':
-	# 			test_loss_clean = -model.model._prior.log_prob(test_data_clean.to(device)).mean()
+		if (epoch + 1) % args.test_freq == 0:
+			if args.infer == 'true_data':
+				test_loss_clean = -model.model._prior.log_prob(test_data_clean.to(device)).mean()
 
-	# 		else:
-	# 			test_loss_clean = -model.model._likelihood.log_prob(test_data_clean.to(device)).mean()
+			else:
+				test_loss_clean = -model.model._likelihood.log_prob(test_data_clean.to(device)).mean()
 
-	# 		message = 'Epoch %s:' % (epoch + 1), 'train loss = %.5f' % loss, 'eval loss = %.5f' % eval_loss, 'test loss (clean) = %.5f' % test_loss_clean
-	# 		logger.info(message)
+			message = 'Epoch %s:' % (epoch + 1), 'train loss = %.5f' % loss, 'eval loss = %.5f' % eval_loss, 'test loss (clean) = %.5f' % test_loss_clean
+			logger.info(message)
 
-	# 	else:
-	# 		message = 'Epoch %s:' % (epoch + 1), 'train loss = %.5f' % loss, 'eval loss = %.5f' % eval_loss
-	# 		logger.info(message)
+		else:
+			message = 'Epoch %s:' % (epoch + 1), 'train loss = %.5f' % loss, 'eval loss = %.5f' % eval_loss
+			logger.info(message)
 
-	# 	if (epoch + 1) % args.viz_freq == 0:
-	# 		if args.infer == 'true_data':
-	# 			samples = model.model._prior.sample(1000).detach().cpu().numpy()
+		if (epoch + 1) % args.viz_freq == 0:
+			if args.infer == 'true_data':
+				samples = model.model._prior.sample(1000).detach().cpu().numpy()
 
-	# 		else:
-	# 			samples = model.model._likelihood.sample(1000).detach().cpu().numpy()
+			else:
+				samples = model.model._likelihood.sample(1000).detach().cpu().numpy()
 				
-	# 		corner.hist2d(samples[:, 0], samples[:, 1])
-	# 		fig_filename = args.dir + 'out/' + name + '_corner_fig_' + str(epoch + 1) + '.png'
-	# 		plt.savefig(fig_filename)
-	# 		plt.close()
+			corner.hist2d(samples[:, 0], samples[:, 1])
+			fig_filename = args.dir + 'out/' + name + '_corner_fig_' + str(epoch + 1) + '.png'
+			plt.savefig(fig_filename)
+			plt.close()
 
-	# 		plt.scatter(samples[:, 0], samples[:, 1])
-	# 		fig_filename = args.dir + 'out/' + name + '_scatter_fig_' + str(epoch + 1) + '.png'
-	# 		plt.savefig(fig_filename)
-	# 		plt.close()
+			plt.scatter(samples[:, 0], samples[:, 1])
+			fig_filename = args.dir + 'out/' + name + '_scatter_fig_' + str(epoch + 1) + '.png'
+			plt.savefig(fig_filename)
+			plt.close()
 
-	# 	model.train()
-	# 	epoch += 1
+		model.train()
+		epoch += 1
 
 
 	model.load_state_dict(best_model)
