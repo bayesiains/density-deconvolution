@@ -129,7 +129,7 @@ class SVIFlowToy(nn.Module):
                  maf_steps_posterior,
                  maf_features,
                  maf_hidden_blocks,
-                 iwae_points=None,
+                 K=1,
                  act_fun=nn.functional.relu):
     
         super(SVIFlowToy, self).__init__()
@@ -143,7 +143,7 @@ class SVIFlowToy(nn.Module):
         self.maf_steps_posterior = maf_steps_posterior
         self.maf_features = maf_features
         self.maf_hidden_blocks = maf_hidden_blocks
-        self.iwae_points = iwae_points
+        self.K = K
         self.act_fun = act_fun
 
         self.model = VariationalAutoencoder(prior=self._create_prior(),
@@ -203,10 +203,10 @@ class SVIFlowToy(nn.Module):
     def score(self, data):
         self.model.eval()
         if self.objective == 'iwae':
-            return self.model.log_prob_lower_bound(data, num_samples=self.iwae_points)
+            return self.model.log_prob_lower_bound(data, num_samples=self.K)
 
         elif self.objective == 'elbo':
-            return self.model.stochastic_elbo(data)
+            return self.model.stochastic_elbo(data, num_samples=self.K)
         
 
 

@@ -26,7 +26,7 @@ parser.add_argument('--n_train_points', type=int, default=int(1e5))
 parser.add_argument('--n_test_points', type=int, default=int(1e3))
 parser.add_argument('--n_eval_points', type=int, default=int(1e3))
 parser.add_argument('--n_kl_points', type=int, default=int(1e4))
-parser.add_argument('--eval_based_scheduler', type=str, default='10,20,30')
+parser.add_argument('--eval_based_scheduler', type=str, default='20,30,40,50')
 parser.add_argument('--lr', type=float, default=5e-3)
 parser.add_argument('--seed', type=int, default=42)
 parser.add_argument('--batch_size', type=int, default=100)
@@ -37,12 +37,11 @@ parser.add_argument('--name', type=str, default=None)
 parser.add_argument('--flow_steps_prior', type=int, default=5)
 parser.add_argument('--flow_steps_posterior', type=int, default=5)
 parser.add_argument('--posterior_context_size', type=int, default=2) #this is just dim when we use w
-parser.add_argument('--n_epochs', type=int, default=int(1e5))
+parser.add_argument('--n_epochs', type=int, default=int(1e6))
 parser.add_argument('--objective', type=str, default='elbo', choices=['elbo', 'iwae', 'iwae_sumo'])
 parser.add_argument('--K', type=int, default=1, help='# of samples for objective')
 parser.add_argument('--viz_freq', type=int, default=10)
 parser.add_argument('--test_freq', type=int, default=10)
-parser.add_argument('--iwae_points', type=int, default=50)
 parser.add_argument('--maf_features', type=int, default=64)
 parser.add_argument('--maf_hidden_blocks', type=int, default=2)
 args = parser.parse_args()
@@ -59,10 +58,13 @@ if args.dir is None:
 		os.makedirs(args.dir)
 
 if args.name is None:
-	name = 'seed_' + str(args.seed)
+	name = 'n_train_points_' + str(args.n_train_points) + \
+		   '_K_' + str(args.K) + \
+		   '_seed_' + str(args.seed)
 
-# if os.path.isfile(args.dir + 'logs/' + name + '.log'):
-#   raise ValueError('This file already exists.')
+
+if os.path.isfile(args.dir + 'logs/' + name + '.log'):
+  raise ValueError('This file already exists.')
 
 if not os.path.exists(args.dir + 'logs/'):
 	os.makedirs(args.dir + 'logs/')
@@ -146,7 +148,7 @@ def main():
 						   maf_steps_posterior=args.flow_steps_posterior,
 						   maf_features=args.maf_features,
 						   maf_hidden_blocks=args.maf_hidden_blocks,
-						   iwae_points=args.iwae_points)
+						   K=args.K)
 
 	else:
 		model = SVIFlowToyNoise(dimensions=2,
