@@ -46,6 +46,7 @@ parser.add_argument('--K', type=int, default=1, help='# of samples for objective
 parser.add_argument('--viz_freq', type=int, default=10)
 parser.add_argument('--test_freq', type=int, default=10)
 parser.add_argument('--iwae_points', type=int, default=50)
+parser.add_argument('--maf_steps', type=int, default=5)
 parser.add_argument('--maf_features', type=int, default=64)
 parser.add_argument('--maf_hidden_blocks', type=int, default=2)
 args = parser.parse_args()
@@ -150,6 +151,7 @@ def main():
 						   posterior_context_size=args.posterior_context_size,
 						   batch_size=args.batch_size,
 						   device=device,
+						   maf_steps=args.maf_steps,
 						   maf_features=args.maf_features,
 						   maf_hidden_blocks=args.maf_hidden_blocks,
 						   iwae_points=args.iwae_points)
