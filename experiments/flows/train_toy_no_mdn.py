@@ -9,7 +9,7 @@ import corner
 from torch.utils.data import DataLoader
 import argparse
 
-#matplotlib.use('agg')
+matplotlib.use('agg')
 
 from deconv.utils.make_2d_toy_data import data_gen
 from deconv.utils.make_2d_toy_noise_covar import covar_gen
@@ -29,7 +29,7 @@ parser.add_argument('--n_kl_points', type=int, default=int(1e4))
 parser.add_argument('--eval_based_scheduler', type=str, default='20,30,40,50')
 parser.add_argument('--lr', type=float, default=5e-3)
 parser.add_argument('--seed', type=int, default=42)
-parser.add_argument('--batch_size', type=int, default=100)
+parser.add_argument('--batch_size', type=int, default=512)
 parser.add_argument('--test_batch_size', type=int, default=100)
 parser.add_argument('--gpu', type=int, default=0)
 parser.add_argument('--dir', type=str, default=None)
@@ -60,6 +60,7 @@ if args.dir is None:
 if args.name is None:
 	name = 'n_train_points_' + str(args.n_train_points) + \
 		   '_K_' + str(args.K) + \
+		   '_batch_size_' + str(args.batch_size)
 		   '_seed_' + str(args.seed)
 
 
