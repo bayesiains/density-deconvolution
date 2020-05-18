@@ -22,10 +22,11 @@ class SVIFlowToyNoise(nn.Module):
                  posterior_context_size,
                  batch_size,
                  device,
-                 maf_steps,
+                 maf_steps_prior,
+                 maf_steps_posterior,
                  maf_features,
                  maf_hidden_blocks,
-                 iwae_points=None,
+                 K=1,
                  act_fun=nn.functional.relu):
     
         super(SVIFlowToyNoise, self).__init__()
@@ -35,10 +36,11 @@ class SVIFlowToyNoise(nn.Module):
         self.posterior_context_size = posterior_context_size 
         self.batch_size = batch_size
         self.device = device
-        self.maf_steps = maf_steps
+        self.maf_steps_prior = maf_steps_prior
+        self.maf_steps_posterior = maf_steps_posterior
         self.maf_features = maf_features
         self.maf_hidden_blocks = maf_hidden_blocks
-        self.iwae_points = iwae_points
+        self.K = K
         self.act_fun = act_fun
 
         self.model = VariationalAutoencoderToyNoise(prior=self._create_prior(),
@@ -47,46 +49,29 @@ class SVIFlowToyNoise(nn.Module):
                                                     inputs_encoder=self._create_input_encoder()).to(device)
 
     def _create_approximate_posterior(self):
-        idx = torch.tril_indices(self.dimensions, self.dimensions)
-        self.idx = (idx[0], idx[1])
-
-        input_size = int(self.dimensions + self.dimensions * (self.dimensions + 1) / 2)
-
-        mdn_hidden = nn.ModuleList()
-        mdn_hidden.append(nn.Linear(input_size, self.posterior_mdn[0]))
-
-        for h0, h1 in zip(self.posterior_mdn[:-1], self.posterior_mdn[1:]):
-            mdn_hidden.append(nn.Linear(h0, h1))
-
-        print(mdn_hidden)
-
-        self.diagonal_mdn = MultivariateGaussianDiagonalMDN(self.dimensions,
-                                                            input_size,
-                                                            self.posterior_mdn[-1],
-                                                            mdn_hidden,
-                                                            self.n_posterior_flows,
-                                                            self.act_fun)
-
-        posterior_transform = self._create_transform(self.flow_steps_posterior, self.posterior_context_size)
+        posterior_transform = self._create_transform(self.maf_steps_posterior, self.posterior_context_size)
+        distribution = StandardNormal((self.dimensions,))
 
         return flows.Flow(transforms.InverseTransform(posterior_transform),
-                          self.diagonal_mdn)
+                          distribution)
 
     def _create_prior(self):
         return DeconvGaussianToyNoise()
 
     def _create_likelihood(self):
-        self.transform = self._create_transform(self.flow_steps_prior)
-        distribution = ConditionalDiagonalNormal((self.dimensions,))
+        self.transform = self._create_transform(self.maf_steps_prior)
+        distribution = StandardNormal((self.dimensions,))
 
         return flows.Flow(self.transform,
                           distribution)
 
     def _create_input_encoder(self):
         def input_encoder(data):
-            w, noise_covar = data
-            x = torch.cat((w, noise_covar[:, self.idx[0], self.idx[1]]), dim=1)
-            return self.diagonal_mdn.get_context(x)
+            # w, noise_covar = data
+            # x = torch.cat((w, noise_covar[:, self.idx[0], self.idx[1]]), dim=1)
+            # return self.diagonal_mdn.get_context(x)
+            w, _ = data
+            return w
 
         return input_encoder
 
@@ -99,12 +84,12 @@ class SVIFlowToyNoise(nn.Module):
                                                                              self._create_maf_transform(context_features)]) for i in range(flow_steps)] + 
                                              [self._create_linear_transform()])
 
-    def _create_maf_transform(self, context_features=None): #fix this with parameters
+    def _create_maf_transform(self, context_features=None): 
         return transforms.MaskedAffineAutoregressiveTransform(features=self.dimensions,
-                                                              hidden_features=128,
+                                                              hidden_features=self.maf_features,
                                                               context_features=context_features,
-                                                              num_blocks=2,
-                                                              use_residual_blocks=True,
+                                                              num_blocks=self.maf_hidden_blocks,
+                                                              use_residual_blocks=False,
                                                               random_mask=False,
                                                               activation=torch.nn.functional.relu,
                                                               dropout_probability=0.0,
@@ -113,10 +98,10 @@ class SVIFlowToyNoise(nn.Module):
     def score(self, data):
         self.model.eval()
         if self.objective == 'iwae':
-            return self.model.log_prob_lower_bound(data, num_samples=self.iwae_points)
+            return self.model.log_prob_lower_bound(data, num_samples=self.K)
 
         elif self.objective == 'elbo':
-            return self.model.stochastic_elbo(data)
+            return self.model.stochastic_elbo(data, num_samples=self.K)
 
 class SVIFlowToy(nn.Module): 
     def __init__(self, 
@@ -189,7 +174,7 @@ class SVIFlowToy(nn.Module):
                                                                              self._create_maf_transform(context_features)]) for i in range(flow_steps)] + 
                                              [self._create_linear_transform()])
 
-    def _create_maf_transform(self, context_features=None): #fix this with parameters
+    def _create_maf_transform(self, context_features=None): 
         return transforms.MaskedAffineAutoregressiveTransform(features=self.dimensions,
                                                               hidden_features=self.maf_features,
                                                               context_features=context_features,

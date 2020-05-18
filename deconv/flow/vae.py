@@ -159,6 +159,7 @@ class VariationalAutoencoderToyNoise(nn.Module):
             posterior_context = inputs
         else:
             posterior_context = self._inputs_encoder(inputs)
+            
         latents, log_q_z = self._approximate_posterior.sample_and_log_prob(
             num_samples,
             context=posterior_context

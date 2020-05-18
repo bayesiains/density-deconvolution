@@ -36,7 +36,6 @@ class MultivariateGaussianDiagonalMDN(nn.Module):
 
     def _hidden_net(self, context):
         h = context
-
         for hidden in self._hidden_net_list:
             h = self.act_fun(hidden(h))
 
@@ -57,7 +56,7 @@ class MultivariateGaussianDiagonalMDN(nn.Module):
 
         tmp = torch.zeros(inputs.shape[0], self._num_components)
         for i in range(self._num_components):
-            tmp[:, i] = torch.log(F.softmax(logits[:, i], dim=-1)) - \
+            tmp[:, i] = torch.log(F.softmax(logits, dim=-1)[i]) - \
                         0.5 * torch.sum(np.log(2*math.pi) + logvars[:, i, :] + (inputs - means[:, i, :])**2 / logvars[:, i, :].exp(), dim=1)
 
         return torch.logsumexp(tmp, dim=-1)
@@ -67,8 +66,6 @@ class MultivariateGaussianDiagonalMDN(nn.Module):
 
         logits, means, logvars = self.get_mixture_components(context)
 
-        # print(logits)
-        # print(F.softmax(logits, dim=-1))
         choices = torch.distributions.categorical.Categorical(F.softmax(logits, dim=-1)).sample((num_samples,)).view(-1)
 
         ix = utils.repeat_rows(torch.arange(batch_size), num_samples)

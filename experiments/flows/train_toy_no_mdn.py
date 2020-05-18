@@ -60,12 +60,13 @@ if args.dir is None:
 if args.name is None:
 	name = 'n_train_points_' + str(args.n_train_points) + \
 		   '_K_' + str(args.K) + \
-		   '_batch_size_' + str(args.batch_size)
+		   '_batch_size_' + str(args.batch_size) + \
+		   '_fs_posterior_' + str(args.flow_steps_posterior) + \
 		   '_seed_' + str(args.seed)
 
 
-if os.path.isfile(args.dir + 'logs/' + name + '.log'):
-  raise ValueError('This file already exists.')
+# if os.path.isfile(args.dir + 'logs/' + name + '.log'):
+#   raise ValueError('This file already exists.')
 
 if not os.path.exists(args.dir + 'logs/'):
 	os.makedirs(args.dir + 'logs/')
@@ -153,20 +154,15 @@ def main():
 
 	else:
 		model = SVIFlowToyNoise(dimensions=2,
-				   				objective=args.objective,
-				   				flow_steps_prior=args.flow_steps_prior,
-				   				flow_steps_posterior=args.flow_steps_posterior,
-				   				n_posterior_flows=args.n_posterior_flows,
-				   				posterior_mdn = list(map(int, args.posterior_mdn.split(','))),
-				   				warmup_posterior_flow_diversity=args.warmup_posterior_flow_diversity,
-				   				warmup_kl=args.warmup_kl,
-				   				kl_init=args.kl_init,
-				   				posterior_context_size=args.posterior_context_size,
-				   				batch_size=args.batch_size,
-				   				device=device,
-				   				maf_features=args.maf_features,
-				   				maf_hidden_blocks=args.maf_hidden_blocks,
-				   				iwae_points=args.iwae_points)
+						   	    objective=args.objective,
+						   	    posterior_context_size=args.posterior_context_size,
+						   	    batch_size=args.batch_size,
+						   	    device=device,
+   						   	    maf_steps_prior=args.flow_steps_prior,
+						   	    maf_steps_posterior=args.flow_steps_posterior,
+						   	    maf_features=args.maf_features,
+						   	    maf_hidden_blocks=args.maf_hidden_blocks,
+						   	    K=args.K)
 
 
 	message = 'Total number of parameters: %s' % (sum(p.numel() for p in model.parameters()))
@@ -260,7 +256,12 @@ def main():
 	if args.data.split('_')[0] == 'mixture' or args.data.split('_')[0] == 'gaussian':
 		kl_points = data_gen(args.data, args.n_kl_points)[0].astype(np.float32)
 
-		model_log_prob = model.model._prior.log_prob(torch.from_numpy(kl_points.astype(np.float32)).to(device)).mean()
+		if args.infer == 'true_data':
+			model_log_prob = model.model._prior.log_prob(torch.from_numpy(kl_points.astype(np.float32)).to(device)).mean()
+
+		else:
+			model_log_prob = model.model._likelihood.log_prob(torch.from_numpy(kl_points.astype(np.float32)).to(device)).mean()
+
 		data_log_prob = compute_data_ll(args.data, kl_points).mean()
 
 		approximate_KL = data_log_prob - model_log_prob
