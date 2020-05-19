@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.utils.data as data_utils
 from torch.nn.utils import clip_grad_norm_
 
-from nflows import flows, transforms
+from nflows import flows, transforms, utils
 from nflows.distributions import ConditionalDiagonalNormal, StandardNormal
 
 from .distributions import DeconvGaussian, DeconvGaussianToy, DeconvGaussianToyNoise
@@ -245,13 +245,16 @@ class SVIFlow(MAFlow):
 
     def __init__(self, dimensions, flow_steps, lr, epochs, context_size=64,
                  batch_size=256, kl_warmup=0.2, kl_init_factor=0.5,
-                 device=None):
+                 n_samples=50, use_iwae=False, device=None):
         super().__init__(
             dimensions, flow_steps, lr, epochs, batch_size, device
         )
         self.context_size = context_size
         self.kl_warmup = kl_warmup
         self.kl_init_factor = kl_init_factor
+        
+        self.n_samples = n_samples
+        self.use_iwae = use_iwae
 
         self.model = VariationalAutoencoder(
             prior=self._create_prior(),
@@ -354,14 +357,22 @@ class SVIFlow(MAFlow):
                 # d[1] = torch.cholesky(d[1])
 
                 torch.set_default_tensor_type('torch.cuda.FloatTensor')
-                elbo = self.model.log_prob_lower_bound(
-                    d,
-                    num_samples=50
-                )
+                
+                if self.use_iwae:
+                    objective = self.model.log_prob_lower_bound(
+                        d,
+                        num_samples=self.n_samples
+                    )
+                else:
+                    objective = self.model.stochastic_elbo(
+                        d,
+                        num_samples=self.n_samples,
+                        keepdim=True
+                    )
                 torch.set_default_tensor_type(torch.FloatTensor)
 
-                train_loss += torch.sum(elbo).item()
-                loss = -1 * torch.mean(elbo)
+                train_loss += torch.sum(objective).item()
+                loss = -1 * torch.mean(objective)
                 loss.backward()
                 optimiser.step()
                 
@@ -408,12 +419,75 @@ class SVIFlow(MAFlow):
         return score
 
     def sample_prior(self, num_samples, device=torch.device('cpu')):
-        return minibatch_sample(
-            self.model._prior.sample,
+        with torch.no_grad():
+            self.model.eval()
+            return minibatch_sample(
+                self.model._prior.sample,
+                num_samples,
+                self.dimensions,
+                self.batch_size,
+                device
+            )
+        
+    def sample_posterior(self, x, num_samples, device=torch.device('cpu')):
+        with torch.no_grad():
+            self.model.eval()
+            context = self.model._inputs_encoder(x)
+            return minibatch_sample(
+                self.model._approximate_posterior.sample,
+                num_samples,
+                self.dimensions,
+                self.batch_size,
+                device,
+                context=context
+            )
+        
+    def _resample_posterior(self, x, num_samples, context):
+        
+        samples, log_q_z = self.model._approximate_posterior.sample_and_log_prob(
             num_samples,
-            self.batch_size,
-            device
+            context=context
         )
+        samples = utils.merge_leading_dims(samples, num_dims=2)
+        log_q_z = utils.merge_leading_dims(log_q_z, num_dims=2)
+
+        # Compute log prob of latents under the prior.
+        log_p_z = self.model._prior.log_prob(samples)
+
+        # Compute log prob of inputs under the decoder,
+        x = utils.repeat_rows(x, num_reps=num_samples)
+        log_p_x = self.model._likelihood.log_prob(x, context=samples)
+
+        # Compute ELBO.
+        log_w = log_p_x + log_p_z - log_q_z
+        log_w = utils.split_leading_dim(log_w, [-1, num_samples])
+        log_w -= torch.logsumexp(log_w, dim=-1)[:, None]
+        
+        samples = utils.split_leading_dim(samples, [-1, num_samples])
+        idx = torch.distributions.Categorical(logits=log_w).sample([num_samples])
+        
+        return samples[
+            torch.arange(len(x), device=self.device)[:, None, None],
+            idx.T[:, :, None],
+            torch.arange(self.dimensions, device=self.device)[None, None, :]
+        ]
+    
+    def resample_posterior(self, x, num_samples, device=torch.device('cpu')):
+        with torch.no_grad():
+            self.model.eval()
+            context = self.model._inputs_encoder(x)
+            
+            return minibatch_sample(
+                self._resample_posterior,
+                num_samples,
+                self.dimensions,
+                self.batch_size,
+                device,
+                context=context,
+                x=x
+            )
+        
+        
         
        
             
