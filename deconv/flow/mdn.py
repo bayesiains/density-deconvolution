@@ -17,8 +17,9 @@ class MultivariateGaussianDiagonalMDN(nn.Module):
                  features,
                  context_features,
                  hidden_features,
-                 hidden_net,
-                 num_components):
+                 hidden_net_list,
+                 num_components,
+                 act_fun):
 
         super().__init__()
 
@@ -26,44 +27,70 @@ class MultivariateGaussianDiagonalMDN(nn.Module):
         self._context_features = context_features
         self._hidden_features = hidden_features
         self._num_components = num_components
+        self.act_fun = act_fun
 
-        self._hidden_net = hidden_net
+        self._hidden_net_list = hidden_net_list
         self._logits_layer = nn.Linear(hidden_features, num_components)
         self._means_layer = nn.Linear(hidden_features, num_components * features)
         self._logvars_layer = nn.Linear(hidden_features, num_components * features)
 
-    def get_mixture_components(self, context):
-        h = self._hidden_net(context)
+    def _hidden_net(self, context):
+        h = context
+        for hidden in self._hidden_net_list:
+            h = self.act_fun(hidden(h))
 
-        logits = self._logits_layer(h)
-        means = self._means_layer(h).view(-1, self._num_components, self._features)
-        logvars = self._logvars_layer(h).view(-1, self.num_components, self._features)
+        return h
+
+    def get_context(self, context):
+        return self._hidden_net(context)
+
+    def get_mixture_components(self, context):
+        logits = self._logits_layer(context)
+        means = self._means_layer(context).view(-1, self._num_components, self._features)
+        logvars = self._logvars_layer(context).view(-1, self._num_components, self._features)
 
         return logits, means, logvars
 
     def log_prob(self, inputs, context):
         logits, means, logvars = self.get_mixture_components(context)
 
-        tmp = torch.zeros(inputs.shape[0], self.components)
-        for i in self.components:
-            tmp[:, i] = torch.log(F.softmax(logits[:, i], dim=-1)) - \
-                        0.5 * torch.sum(np.log(2*math.pi) + logvars[:, i] + (x - means[:, i])**2 / logvars[:, i].exp(), dim=1)
+        tmp = torch.zeros(inputs.shape[0], self._num_components)
+        for i in range(self._num_components):
+            tmp[:, i] = torch.log(F.softmax(logits, dim=-1)[i]) - \
+                        0.5 * torch.sum(np.log(2*math.pi) + logvars[:, i, :] + (inputs - means[:, i, :])**2 / logvars[:, i, :].exp(), dim=1)
 
-        return torch.logsumexp(tmp)
+        return torch.logsumexp(tmp, dim=-1)
 
-    def sample(self, context, num_samples=1):
+    def sample(self, num_samples, context):
         batch_size = context.shape[0]
 
         logits, means, logvars = self.get_mixture_components(context)
-        coins = torch.distributions.categorical.Categorical(F.softmax(logits, dim=-1)).sample(num_samples)
+
+        choices = torch.distributions.categorical.Categorical(F.softmax(logits, dim=-1)).sample((num_samples,)).view(-1)
 
         ix = utils.repeat_rows(torch.arange(batch_size), num_samples)
 
         chosen_means = means[ix, choices, :]
         chosen_logvars = logvars[ix, choices, :]
 
-        samples = chosen_means + torch.exp(0.5 * chosen_logvars) * torch.randn(batch_size, num_samples)
-        return samples
+        samples = chosen_means + torch.exp(0.5 * chosen_logvars) * torch.randn_like(chosen_logvars)
+        return samples.reshape(batch_size, num_samples, self._features)
+
+    def sample_and_log_prob(self, num_samples, context):
+        samples = self.sample(num_samples, context)
+
+        if context is not None:
+            samples = utils.merge_leading_dims(samples, num_dims=2)
+            context = utils.repeat_rows(context, num_reps=num_samples)
+        
+        log_prob = self.log_prob(samples, context)
+        
+        if context is not None:
+            # Split the context dimension from sample dimension.
+            samples = utils.split_leading_dim(samples, shape=[-1, num_samples])
+            log_prob = utils.split_leading_dim(log_prob, shape=[-1, num_samples])
+
+        return samples, log_prob
 
 
 class MultivariateGaussianMDN(nn.Module):

@@ -9,7 +9,14 @@ def covar_gen(covar, n_samples, rng=np.random):
 
 		return covar
 
-	if covar == 'random_diagonal_covar1':
+	elif covar == 'fixed_diagonal_covar2':
+		covar = np.zeros((n_samples, 2, 2))
+		covar[:] = np.array([[0.3, 0.0], 
+							 [0.0, 0.3]])
+
+		return covar
+
+	elif covar == 'random_diagonal_covar1':
 		sigma_x = rng.normal(0.0, 0.1, n_samples)**2
 		sigma_y = rng.normal(0.0, 1.0, n_samples)**2
 
@@ -20,5 +27,5 @@ def covar_gen(covar, n_samples, rng=np.random):
 
 		return covar
 
-    else:
-        raise ValueError('Choose one of the available covariance options.') 
+	else:
+		raise ValueError('Choose one of the available covariance options.') 

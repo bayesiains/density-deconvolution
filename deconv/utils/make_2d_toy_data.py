@@ -13,20 +13,20 @@ def data_gen(data, n_samples, noise=None, rng=np.random):
 
         return data, noise
 
-    elif data == 'gaussian1':
+    elif data == 'gaussian_1':
         return np.random.multivariate_normal([1.0, 1.0], [[0.09, 0.0], [0.0, 0.09]], n_samples), None
 
-    elif data == 'gaussian2':
+    elif data == 'gaussian_2':
     	return np.random.multivariate_normal([1.0, 1.0], [[0.25, 0.0], [0.0, 0.25]], n_samples), None
 
-    elif data == 'gaussian3':
+    elif data == 'gaussian_3':
         return np.random.multivariate_normal([1.0, 1.0], [[1.0, 0.0], [0.0, 1.0]], n_samples), None
 
-    elif data == 'mixture1':
+    elif data == 'mixture_1':
         coins = np.random.choice(3, n_samples, p=[1./3, 1./3, 1./3])
-        bincounts = np.bincounts(coins)
+        bincounts = np.bincount(coins)
 
-        means = [[0.0, 0.0], [2.0, 3.0], [-2.0, 3.0]]
+        means = [[0.0, 0.0], [2.0, 3.0], [2.0, -3.0]]
         covars = [[[0.1, 0.0], [0.0, 1.5]], 
                   [[1.0, 0.0], [0.0, 0.1]],
                   [[1.0, 0.0], [0.0, 0.1]]]
@@ -35,6 +35,43 @@ def data_gen(data, n_samples, noise=None, rng=np.random):
 
         offset = 0
         for i in range(3):
+            samples[offset:(offset + bincounts[i])] = np.random.multivariate_normal(means[i], covars[i], bincounts[i])
+
+            offset += bincounts[i]
+
+        return util_shuffle(samples), None
+
+    elif data == 'mixture_2':
+        coins = np.random.choice(2, n_samples, p=[1./2, 1./2])
+        bincounts = np.bincount(coins)
+
+        means = [[-3.0, -3.0], [3.0, 3.0]]
+        covars = [[[0.09, 0.0], [0.0, 0.09]], 
+                  [[0.09, 0.0], [0.0, 0.09]]]
+
+        samples = np.zeros((n_samples, 2))
+
+        offset = 0
+        for i in range(2):
+            samples[offset:(offset + bincounts[i])] = np.random.multivariate_normal(means[i], covars[i], bincounts[i])
+
+            offset += bincounts[i]
+
+        return util_shuffle(samples), None
+
+
+    elif data == 'mixture_3':
+        coins = np.random.choice(2, n_samples, p=[1./2, 1./2])
+        bincounts = np.bincount(coins)
+
+        means = [[-1.0, -1.0], [1.0, 1.0]]
+        covars = [[[0.25, 0.0], [0.0, 0.25]], 
+                  [[0.09, 0.0], [0.0, 0.09]]]
+
+        samples = np.zeros((n_samples, 2))
+
+        offset = 0
+        for i in range(2):
             samples[offset:(offset + bincounts[i])] = np.random.multivariate_normal(means[i], covars[i], bincounts[i])
 
             offset += bincounts[i]

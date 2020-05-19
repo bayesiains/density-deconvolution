@@ -15,7 +15,7 @@ from deconv.utils.make_2d_toy_data import data_gen
 from deconv.utils.make_2d_toy_noise_covar import covar_gen
 from deconv.utils.compute_2d_log_likelihood import compute_data_ll
 from deconv.utils.misc import get_logger
-from deconv.flow.svi import SVIFlowToy, SVIFlowToyNoise
+from deconv.flow.svi_no_mdn import SVIFlowToy, SVIFlowToyNoise
 from deconv.gmm.data import DeconvDataset
 
 parser = argparse.ArgumentParser()
@@ -36,7 +36,7 @@ parser.add_argument('--dir', type=str, default=None)
 parser.add_argument('--name', type=str, default=None)
 parser.add_argument('--flow_steps_prior', type=int, default=5)
 parser.add_argument('--flow_steps_posterior', type=int, default=5)
-parser.add_argument('--posterior_context_size', type=int, default=64) #this is just dim when we use w
+parser.add_argument('--posterior_context_size', type=int, default=2) #this is just dim when we use w
 parser.add_argument('--n_epochs', type=int, default=int(1e6))
 parser.add_argument('--objective', type=str, default='elbo', choices=['elbo', 'iwae', 'iwae_sumo'])
 parser.add_argument('--K', type=int, default=1, help='# of samples for objective')
@@ -44,20 +44,15 @@ parser.add_argument('--viz_freq', type=int, default=10)
 parser.add_argument('--test_freq', type=int, default=10)
 parser.add_argument('--maf_features', type=int, default=64)
 parser.add_argument('--maf_hidden_blocks', type=int, default=2)
-parser.add_argument('--posterior_mdn_net', type=str, default='64,64')
-parser.add_argument('--posterior_mdn_components', type=str, default=1)
 args = parser.parse_args()
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 if torch.cuda.is_available():
-    torch.set_default_tensor_type('torch.cuda.DoubleTensor')
+    torch.set_default_tensor_type('torch.cuda.FloatTensor')
     torch.cuda.set_device(args.gpu)
 
-else:
-	torch.set_default_tensor_type('torch.DoubleTensor')
-
 if args.dir is None:
-	args.dir = 'toy_mdn_double/' + str(args.infer) + '/' + str(args.objective) + '/' + str(args.data) + '/' + str(args.covar) + '/'
+	args.dir = 'toy/' + str(args.infer) + '/' + str(args.objective) + '/' + str(args.data) + '/' + str(args.covar) + '/'
 
 	if not os.path.exists(args.dir):
 		os.makedirs(args.dir)
@@ -66,8 +61,7 @@ if args.name is None:
 	name = 'n_train_points_' + str(args.n_train_points) + \
 		   '_K_' + str(args.K) + \
 		   '_batch_size_' + str(args.batch_size) + \
-		   '_mdn_net_' + args.posterior_mdn_net + \
-		   '_mdn_comps_' + str(args.posterior_mdn_components) + \
+		   '_fs_posterior_' + str(args.flow_steps_posterior) + \
 		   '_seed_' + str(args.seed)
 
 
@@ -90,9 +84,11 @@ torch.manual_seed(args.seed)
 np.random.seed(args.seed)
 
 def lr_scheduler(n_epochs_not_improved, optimzer, scheduler, logger):
+	lr = args.lr
+
 	for i in range(len(scheduler) - 1):
-		if n_epochs_not_improved < scheduler[i]:
-			lr = args.lr * 0.1
+		if n_epochs_not_improved > scheduler[i]:
+			lr *= 0.1
 
 	for param_group in optimzer.param_groups:
 		param_group['lr'] = lr
@@ -111,8 +107,8 @@ def compute_eval_loss(model, eval_loader, device, n_points):
 	return loss / n_points
 
 def main():
-	train_covar = covar_gen(args.covar, args.n_train_points).astype(np.float64)
-	train_data_clean = data_gen(args.data, args.n_train_points)[0].astype(np.float64)
+	train_covar = covar_gen(args.covar, args.n_train_points).astype(np.float32)
+	train_data_clean = data_gen(args.data, args.n_train_points)[0].astype(np.float32)
 
 	# plt.scatter(train_data_clean[:, 0], train_data_clean[:, 1])
 	
@@ -124,22 +120,22 @@ def main():
 	# plt.show()
 
 	train_covar = torch.from_numpy(train_covar)
-	train_data = torch.from_numpy(train_data.astype(np.float64))
+	train_data = torch.from_numpy(train_data.astype(np.float32))
 
 	train_dataset = DeconvDataset(train_data, train_covar)
 	train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
 
-	test_data_clean = torch.from_numpy(data_gen(args.data, args.n_test_points)[0].astype(np.float64)) 
+	test_data_clean = torch.from_numpy(data_gen(args.data, args.n_test_points)[0].astype(np.float32)) 
 
-	eval_covar = covar_gen(args.covar, args.n_eval_points).astype(np.float64)
-	eval_data_clean = data_gen(args.data, args.n_eval_points)[0].astype(np.float64)
+	eval_covar = covar_gen(args.covar, args.n_eval_points).astype(np.float32)
+	eval_data_clean = data_gen(args.data, args.n_eval_points)[0].astype(np.float32)
 	
 	eval_data = np.zeros_like(eval_data_clean)
 	for i in range(args.n_eval_points):
 		eval_data[i] = eval_data_clean[i] + np.random.multivariate_normal(mean=np.zeros((2,)), cov=eval_covar[i])
 
 	eval_covar = torch.from_numpy(eval_covar)
-	eval_data = torch.from_numpy(eval_data.astype(np.float64))
+	eval_data = torch.from_numpy(eval_data.astype(np.float32))
 
 	eval_dataset = DeconvDataset(eval_data, eval_covar)
 	eval_loader = DataLoader(eval_dataset, batch_size=args.test_batch_size, shuffle=False)
@@ -154,9 +150,7 @@ def main():
 						   maf_steps_posterior=args.flow_steps_posterior,
 						   maf_features=args.maf_features,
 						   maf_hidden_blocks=args.maf_hidden_blocks,
-						   K=args.K,
-						   posterior_mdn_net=list(map(int,args.posterior_mdn_net.split(','))),
-						   posterior_mdn_components=args.posterior_mdn_components)
+						   K=args.K)
 
 	else:
 		model = SVIFlowToyNoise(dimensions=2,
@@ -168,9 +162,7 @@ def main():
 						   	    maf_steps_posterior=args.flow_steps_posterior,
 						   	    maf_features=args.maf_features,
 						   	    maf_hidden_blocks=args.maf_hidden_blocks,
-						   	    K=args.K,
-						   		posterior_mdn_net=list(map(int,args.posterior_mdn_net.split(','))),
-						   		posterior_mdn_components=args.posterior_mdn_components)
+						   	    K=args.K)
 
 
 	message = 'Total number of parameters: %s' % (sum(p.numel() for p in model.parameters()))
@@ -218,7 +210,7 @@ def main():
 			else:
 				test_loss_clean = -model.model._likelihood.log_prob(test_data_clean.to(device)).mean()
 
-			message = 'Epoch %s:' % (epoch + 1), 'train loss = %.5f' % loss, 'eval loss = %.5f' % eval_loss, 'train loss (clean) = %.5f' % test_loss_clean
+			message = 'Epoch %s:' % (epoch + 1), 'train loss = %.5f' % loss, 'eval loss = %.5f' % eval_loss, 'test loss (clean) = %.5f' % test_loss_clean
 			logger.info(message)
 
 		else:
@@ -244,6 +236,19 @@ def main():
 
 		model.train()
 		epoch += 1
+
+
+	model.load_state_dict(best_model)
+	model.eval()
+
+	if args.infer == 'true_data':
+		test_loss_clean = -model.model._prior.log_prob(test_data_clean.to(device)).mean()
+
+	else:
+		test_loss_clean = -model.model._likelihood.log_prob(test_data_clean.to(device)).mean()
+
+	message = 'Final test loss (clean) = %.5f' % test_loss_clean
+	logger.info(message)
 
 	torch.save(model.state_dict(), args.dir + 'models/' + name + '.model')
 	logger.info('Training has finished.')
