@@ -16,6 +16,13 @@ def covar_gen(covar, n_samples, rng=np.random):
 
 		return covar
 
+	elif covar == 'fixed_diagonal_covar3':
+		covar = np.zeros((n_samples, 2, 2))
+		covar[:] = np.array([[0.2, 0.0], 
+							 [0.0, 0.2]])
+
+		return covar
+
 	elif covar == 'random_diagonal_covar1':
 		sigma_x = rng.normal(0.0, 0.1, n_samples)**2
 		sigma_y = rng.normal(0.0, 1.0, n_samples)**2
