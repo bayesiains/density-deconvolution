@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from nflows.nn.nets import ResidualNet
+
 
 class DeconvInputEncoder(nn.Module):
 
@@ -14,18 +16,21 @@ class DeconvInputEncoder(nn.Module):
 
         input_size = int(d + d * (d + 1) / 2)
 
-        self.fc1 = nn.Linear(input_size, context_size)
-        self.fc2 = nn.Linear(context_size, context_size)
-        self.fc3 = nn.Linear(context_size, context_size)
+        self.resnet = ResidualNet(
+            in_features=input_size,
+            out_features=context_size,
+            hidden_features=256,
+            context_features=None,
+            num_blocks=3,
+            activation=F.relu,
+            dropout_probability=0.2,
+            use_batch_norm=False
+        )
 
     def forward(self, inputs):
         x, noise_l = inputs
 
         x = torch.cat((x, noise_l[:, self.idx[0], self.idx[1]]), dim=1)
 
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
-
-        return x
+        return self.resnet(x)
 
