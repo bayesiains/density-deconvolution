@@ -89,14 +89,14 @@ def data_gen(data, n_samples, noise=None, rng=np.random):
 
         return data, noise
 
-    elif data == 'circles_2':
+    elif data == 'circles_easy':
         if noise is None:
-            noise = 0.08
+            noise = 0.02
 
-        data = sklearn.datasets.make_circles(n_samples=n_samples, factor=0.3, noise=noise)[0]
+        data = sklearn.datasets.make_circles(n_samples=n_samples, factor=0.4, noise=noise)[0]
         data = data.astype(np.float32)
-        # data *= 3
-        data *= 5
+        data *= 3
+        # data *= 5
 
         return data, noise
 
