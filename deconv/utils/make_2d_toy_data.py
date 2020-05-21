@@ -2,12 +2,14 @@ import numpy as np
 import sklearn.datasets
 from sklearn.utils import shuffle as util_shuffle
 
+
 def data_gen(data, n_samples, noise=None, rng=np.random):
     if data == 'swissroll':
         if noise is None:
             noise = 1.0
 
-        data = sklearn.datasets.make_swiss_roll(n_samples=n_samples, noise=noise)[0]
+        data = sklearn.datasets.make_swiss_roll(
+            n_samples=n_samples, noise=noise)[0]
         data = data.astype(np.float32)[:, [0, 2]]
         data /= 5
 
@@ -17,17 +19,17 @@ def data_gen(data, n_samples, noise=None, rng=np.random):
         return np.random.multivariate_normal([1.0, 1.0], [[0.09, 0.0], [0.0, 0.09]], n_samples), None
 
     elif data == 'gaussian_2':
-    	return np.random.multivariate_normal([1.0, 1.0], [[0.25, 0.0], [0.0, 0.25]], n_samples), None
+        return np.random.multivariate_normal([1.0, 1.0], [[0.25, 0.0], [0.0, 0.25]], n_samples), None
 
     elif data == 'gaussian_3':
         return np.random.multivariate_normal([1.0, 1.0], [[1.0, 0.0], [0.0, 1.0]], n_samples), None
 
     elif data == 'mixture_1':
-        coins = np.random.choice(3, n_samples, p=[1./3, 1./3, 1./3])
+        coins = np.random.choice(3, n_samples, p=[1. / 3, 1. / 3, 1. / 3])
         bincounts = np.bincount(coins)
 
         means = [[0.0, 0.0], [2.0, 3.0], [2.0, -3.0]]
-        covars = [[[0.1, 0.0], [0.0, 1.5]], 
+        covars = [[[0.1, 0.0], [0.0, 1.5]],
                   [[1.0, 0.0], [0.0, 0.1]],
                   [[1.0, 0.0], [0.0, 0.1]]]
 
@@ -35,44 +37,46 @@ def data_gen(data, n_samples, noise=None, rng=np.random):
 
         offset = 0
         for i in range(3):
-            samples[offset:(offset + bincounts[i])] = np.random.multivariate_normal(means[i], covars[i], bincounts[i])
+            samples[offset:(offset + bincounts[i])
+                    ] = np.random.multivariate_normal(means[i], covars[i], bincounts[i])
 
             offset += bincounts[i]
 
         return util_shuffle(samples), None
 
     elif data == 'mixture_2':
-        coins = np.random.choice(2, n_samples, p=[1./2, 1./2])
+        coins = np.random.choice(2, n_samples, p=[1. / 2, 1. / 2])
         bincounts = np.bincount(coins)
 
         means = [[-3.0, -3.0], [3.0, 3.0]]
-        covars = [[[0.09, 0.0], [0.0, 0.09]], 
+        covars = [[[0.09, 0.0], [0.0, 0.09]],
                   [[0.09, 0.0], [0.0, 0.09]]]
 
         samples = np.zeros((n_samples, 2))
 
         offset = 0
         for i in range(2):
-            samples[offset:(offset + bincounts[i])] = np.random.multivariate_normal(means[i], covars[i], bincounts[i])
+            samples[offset:(offset + bincounts[i])
+                    ] = np.random.multivariate_normal(means[i], covars[i], bincounts[i])
 
             offset += bincounts[i]
 
         return util_shuffle(samples), None
 
-
     elif data == 'mixture_3':
-        coins = np.random.choice(2, n_samples, p=[1./2, 1./2])
+        coins = np.random.choice(2, n_samples, p=[1. / 2, 1. / 2])
         bincounts = np.bincount(coins)
 
         means = [[-1.0, -1.0], [1.0, 1.0]]
-        covars = [[[0.25, 0.0], [0.0, 0.25]], 
+        covars = [[[0.25, 0.0], [0.0, 0.25]],
                   [[0.09, 0.0], [0.0, 0.09]]]
 
         samples = np.zeros((n_samples, 2))
 
         offset = 0
         for i in range(2):
-            samples[offset:(offset + bincounts[i])] = np.random.multivariate_normal(means[i], covars[i], bincounts[i])
+            samples[offset:(offset + bincounts[i])
+                    ] = np.random.multivariate_normal(means[i], covars[i], bincounts[i])
 
             offset += bincounts[i]
 
@@ -82,7 +86,8 @@ def data_gen(data, n_samples, noise=None, rng=np.random):
         if noise is None:
             noise = 0.08
 
-        data = sklearn.datasets.make_circles(n_samples=n_samples, factor=.5, noise=noise)[0]
+        data = sklearn.datasets.make_circles(
+            n_samples=n_samples, factor=.5, noise=noise)[0]
         data = data.astype(np.float32)
         # data *= 3
         data *= 5
@@ -93,7 +98,8 @@ def data_gen(data, n_samples, noise=None, rng=np.random):
         if noise is None:
             noise = 0.02
 
-        data = sklearn.datasets.make_circles(n_samples=n_samples, factor=0.4, noise=noise)[0]
+        data = sklearn.datasets.make_circles(
+            n_samples=n_samples, factor=0.4, noise=noise)[0]
         data = data.astype(np.float32)
         data *= 3
         # data *= 5
@@ -135,10 +141,11 @@ def data_gen(data, n_samples, noise=None, rng=np.random):
 
     elif data == 'moons':
         if noise is None:
-            noise = 0.1
+            noise = 0.03
 
         data = sklearn.datasets.make_moons(n_samples=n_samples, noise=noise)[0]
         data = data.astype(np.float32)
+        data = data * 3
         # data = data * 2 + np.array([-1, -0.2])
 
         return data, noise
@@ -147,7 +154,7 @@ def data_gen(data, n_samples, noise=None, rng=np.random):
         scale = 4.
         centers = [(1, 0), (-1, 0), (0, 1), (0, -1), (1. / np.sqrt(2), 1. / np.sqrt(2)),
                    (1. / np.sqrt(2), -1. / np.sqrt(2)), (-1. / np.sqrt(2),
-                   1. / np.sqrt(2)), (-1. / np.sqrt(2), -1. / np.sqrt(2))]
+                                                         1. / np.sqrt(2)), (-1. / np.sqrt(2), -1. / np.sqrt(2))]
         centers = [(scale * x, scale * y) for x, y in centers]
 
         dataset = []
@@ -189,12 +196,14 @@ def data_gen(data, n_samples, noise=None, rng=np.random):
         rate = 0.25
         rads = np.linspace(0, 2 * np.pi, num_classes, endpoint=False)
 
-        features = rng.randn(num_classes*num_per_class, 2) * np.array([radial_std, tangential_std])
+        features = rng.randn(num_classes * num_per_class, 2) * \
+            np.array([radial_std, tangential_std])
         features[:, 0] += 1.
         labels = np.repeat(np.arange(num_classes), num_per_class)
 
         angles = rads[labels] + rate * np.exp(features[:, 0])
-        rotations = np.stack([np.cos(angles), -np.sin(angles), np.sin(angles), np.cos(angles)])
+        rotations = np.stack(
+            [np.cos(angles), -np.sin(angles), np.sin(angles), np.cos(angles)])
         rotations = np.reshape(rotations.T, (-1, 2, 2))
 
         return 2 * rng.permutation(np.einsum('ti', 'tij->tj', features, rotations)), None
@@ -203,7 +212,8 @@ def data_gen(data, n_samples, noise=None, rng=np.random):
         if noise is None:
             noise = 0.1
 
-        n = np.sqrt(np.random.rand(n_samples // 2, 1)) * 540 * (2 * np.pi) / 360
+        n = np.sqrt(np.random.rand(n_samples // 2, 1)) * \
+            540 * (2 * np.pi) / 360
         d1x = -np.cos(n) * n + np.random.rand(n_samples // 2, 1) * 0.5
         d1y = np.sin(n) * n + np.random.rand(n_samples // 2, 1) * 0.5
         x = np.vstack((np.hstack((d1x, d1y)), np.hstack((-d1x, -d1y)))) / 3
@@ -213,7 +223,8 @@ def data_gen(data, n_samples, noise=None, rng=np.random):
 
     elif data == 'checkerboard':
         x1 = np.random.rand(n_samples) * 4 - 2
-        x2_ = np.random.rand(n_samples) - np.random.randint(0, 2, n_samples) * 2
+        x2_ = np.random.rand(n_samples) - \
+            np.random.randint(0, 2, n_samples) * 2
         x2 = x2_ + (np.floor(x1) % 2)
 
         return np.concatenate([x1[:, None], x2[:, None]], 1) * 2, None
