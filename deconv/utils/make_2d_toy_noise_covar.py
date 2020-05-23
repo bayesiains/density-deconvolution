@@ -41,7 +41,21 @@ def covar_gen(covar, n_samples, rng=np.random):
     elif covar == 'fixed_diagonal_covar6':
         covar = np.zeros((n_samples, 2, 2))
         covar[:] = np.array([[0.5, 0.0],
-                             [0.0, 0.05]])
+                             [0.0, 0.01]])
+
+        return covar
+
+    elif covar == 'fixed_diagonal_covar9':
+        covar = np.zeros((n_samples, 2, 2))
+        covar[:] = np.array([[2.0, 0.0],
+                             [0.0, 0.01]])
+
+        return covar
+
+    elif covar == 'fixed_diagonal_covar8':
+        covar = np.zeros((n_samples, 2, 2))
+        covar[:] = np.array([[0.1, 0.0],
+                             [0.0, 1.0]])
 
         return covar
 
