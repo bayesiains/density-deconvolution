@@ -125,7 +125,7 @@ def main():
     train_data_clean = data_gen(args.data, args.n_train_points)[
         0].astype(np.float64)
 
-    plt.scatter(train_data_clean[:, 0], train_data_clean[:, 1])
+    #plt.scatter(train_data_clean[:, 0], train_data_clean[:, 1])
 
     train_data = np.zeros_like(train_data_clean)
     for i in range(args.n_train_points):
@@ -133,8 +133,8 @@ def main():
             np.random.multivariate_normal(
                 mean=np.zeros((2,)), cov=train_covar[i])
 
-    plt.scatter(train_data[:, 0], train_data[:, 1])
-    plt.show()
+    #plt.scatter(train_data[:, 0], train_data[:, 1])
+    # plt.show()
 
     train_covar = torch.from_numpy(train_covar)
     train_data = torch.from_numpy(train_data.astype(np.float64))
@@ -204,10 +204,12 @@ def main():
     epoch = 0
 
     model.eval()
-    best_model = copy.deepcopy(model.state_dict())
+    with torch.no_grad():
+        best_eval_loss = compute_eval_loss(
+            model, eval_loader, device, args.n_eval_points)
 
-    best_eval_loss = compute_eval_loss(
-        model, eval_loader, device, args.n_eval_points)
+        best_model = copy.deepcopy(model.state_dict())
+
     n_epochs_not_improved = 0
 
     model.train()
@@ -222,59 +224,60 @@ def main():
             optimizer.step()
 
         model.eval()
-        eval_loss = compute_eval_loss(
-            model, eval_loader, device, args.n_eval_points)
+        with torch.no_grad():
+            eval_loss = compute_eval_loss(
+                model, eval_loader, device, args.n_eval_points)
 
-        if eval_loss < best_eval_loss:
-            best_model = copy.deepcopy(model.state_dict())
-            best_eval_loss = eval_loss
-            n_epochs_not_improved = 0
-
-        else:
-            n_epochs_not_improved += 1
-
-        lr_scheduler(n_epochs_not_improved, optimizer, scheduler, logger)
-
-        if (epoch + 1) % args.test_freq == 0:
-            if args.infer == 'true_data':
-                test_loss_clean = - \
-                    model.model._prior.log_prob(
-                        test_data_clean.to(device)).mean()
+            if eval_loss < best_eval_loss:
+                best_model = copy.deepcopy(model.state_dict())
+                best_eval_loss = eval_loss
+                n_epochs_not_improved = 0
 
             else:
-                test_loss_clean = - \
-                    model.model._likelihood.log_prob(
-                        test_data_clean.to(device)).mean()
+                n_epochs_not_improved += 1
 
-            message = 'Epoch %s:' % (
-                epoch + 1), 'train loss = %.5f' % loss, 'eval loss = %.5f' % eval_loss, 'test loss (clean) = %.5f' % test_loss_clean
-            logger.info(message)
+            lr_scheduler(n_epochs_not_improved, optimizer, scheduler, logger)
 
-        else:
-            message = 'Epoch %s:' % (
-                epoch + 1), 'train loss = %.5f' % loss, 'eval loss = %.5f' % eval_loss
-            logger.info(message)
+            if (epoch + 1) % args.test_freq == 0:
+                if args.infer == 'true_data':
+                    test_loss_clean = - \
+                        model.model._prior.log_prob(
+                            test_data_clean.to(device)).mean()
 
-        if (epoch + 1) % args.viz_freq == 0:
-            if args.infer == 'true_data':
-                samples = model.model._prior.sample(
-                    1000).detach().cpu().numpy()
+                else:
+                    test_loss_clean = - \
+                        model.model._likelihood.log_prob(
+                            test_data_clean.to(device)).mean()
+
+                message = 'Epoch %s:' % (
+                    epoch + 1), 'train loss = %.5f' % loss, 'eval loss = %.5f' % eval_loss, 'test loss (clean) = %.5f' % test_loss_clean
+                logger.info(message)
 
             else:
-                samples = model.model._likelihood.sample(
-                    1000).detach().cpu().numpy()
+                message = 'Epoch %s:' % (
+                    epoch + 1), 'train loss = %.5f' % loss, 'eval loss = %.5f' % eval_loss
+                logger.info(message)
 
-            corner.hist2d(samples[:, 0], samples[:, 1])
-            fig_filename = args.dir + 'out/' + name + \
-                '_corner_fig_' + str(epoch + 1) + '.png'
-            plt.savefig(fig_filename)
-            plt.close()
+            if (epoch + 1) % args.viz_freq == 0:
+                if args.infer == 'true_data':
+                    samples = model.model._prior.sample(
+                        1000).detach().cpu().numpy()
 
-            plt.scatter(samples[:, 0], samples[:, 1])
-            fig_filename = args.dir + 'out/' + name + \
-                '_scatter_fig_' + str(epoch + 1) + '.png'
-            plt.savefig(fig_filename)
-            plt.close()
+                else:
+                    samples = model.model._likelihood.sample(
+                        1000).detach().cpu().numpy()
+
+                corner.hist2d(samples[:, 0], samples[:, 1])
+                fig_filename = args.dir + 'out/' + name + \
+                    '_corner_fig_' + str(epoch + 1) + '.png'
+                plt.savefig(fig_filename)
+                plt.close()
+
+                plt.scatter(samples[:, 0], samples[:, 1])
+                fig_filename = args.dir + 'out/' + name + \
+                    '_scatter_fig_' + str(epoch + 1) + '.png'
+                plt.savefig(fig_filename)
+                plt.close()
 
         model.train()
         epoch += 1
