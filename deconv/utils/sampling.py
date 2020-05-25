@@ -3,8 +3,10 @@ import torch
 
     
 def minibatch_sample(sample_f, num_samples, dimensions, batch_size, device=torch.device('cpu'), context=None, x=None):
-
-    if context is not None:
+    
+    if x is not None:
+        ld = len(x)
+    elif context is not None:
         ld = context.shape[0]
     else:
         ld = 1
