@@ -281,16 +281,6 @@ class SVIFlow(MAFlow):
 
     def _create_approximate_posterior(self):
 
-        # context_encoder = torch.nn.Linear(
-        #     self.context_size,
-        #     2 * self.dimensions
-        # )
-
-        # distribution = ConditionalDiagonalNormal(
-        #     shape=(self.dimensions,),
-        #     context_encoder=context_encoder
-        # )
-
         distribution = StandardNormal((self.dimensions,))
 
         posterior_transform = self._create_transform(self.context_size)
@@ -330,16 +320,15 @@ class SVIFlow(MAFlow):
             pin_memory=True
         )
 
-        batches = len(loader)
-
-        max_steps = self.epochs * batches
-
-        # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        #    optimiser,
-        #    max_steps
-        # )
-        scheduler=None
-
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimiser,
+            mode='max',
+            factor=0.8,
+            patience=20,
+            verbose=True,
+            threshold=1e-6
+        )
+        
         for i in range(self.epochs):
 
             self.model.train()
@@ -352,13 +341,9 @@ class SVIFlow(MAFlow):
 
                 optimiser.zero_grad()
 
-                step = i * batches + j
-
-                # d[1] = torch.cholesky(d[1])
-
-                torch.set_default_tensor_type('torch.cuda.FloatTensor')
+                torch.set_default_tensor_type(torch.cuda.FloatTensor)
                 
-                if self.use_iwae:
+                if self.use_iwae and (i >= 5):
                     objective = self.model.log_prob_lower_bound(
                         d,
                         num_samples=self.n_samples
@@ -366,8 +351,7 @@ class SVIFlow(MAFlow):
                 else:
                     objective = self.model.stochastic_elbo(
                         d,
-                        num_samples=self.n_samples,
-                        keepdim=True
+                        num_samples=self.n_samples
                     )
                 torch.set_default_tensor_type(torch.FloatTensor)
 
@@ -376,34 +360,40 @@ class SVIFlow(MAFlow):
                 loss.backward()
                 optimiser.step()
                 
-                if scheduler:
-                    scheduler.step()
-
             train_loss /= len(data)
-
+            
             if val_data:
-                val_loss = self.score_batch(val_data) / len(val_data)
+                val_loss = self.score_batch(
+                    val_data,
+                    log_prob=self.use_iwae,
+                    num_samples=self.n_samples
+                ) / len(val_data)
                 print('Epoch {}, Train Loss: {}, Val Loss: {}'.format(
                     i,
                     train_loss,
                     val_loss
                 ))
+                scheduler.step(val_loss)
             else:
                 print('Epoch {}, Train Loss: {}'.format(i, train_loss))
+                scheduler.step(train_loss)
 
+    def score(self, data, log_prob=False, num_samples=None):
+        
+        if not num_samples:
+            num_samples = self.n_samples
 
-    def score(self, data, log_prob=False):
         with torch.no_grad():
             self.model.eval()
-            # data[1] = torch.cholesky(data[1])
+
             torch.set_default_tensor_type(torch.cuda.FloatTensor)
             if log_prob:
-                return self.model.log_prob_lower_bound(data, num_samples=100)
+                return self.model.log_prob_lower_bound(data, num_samples=num_samples)
             else:
-                return self.model.stochastic_elbo(data)
+                return self.model.stochastic_elbo(data, num_samples=num_samples)
             torch.set_default_tensor_type(torch.FloatTensor)
 
-    def score_batch(self, dataset, log_prob=False):
+    def score_batch(self, dataset, log_prob=False, num_samples=None):
         loader = data_utils.DataLoader(
             dataset,
             batch_size=self.batch_size,
@@ -414,7 +404,7 @@ class SVIFlow(MAFlow):
 
         for j, d in enumerate(loader):
             d = [a.to(self.device) for a in d]
-            score += torch.sum(self.score(d, log_prob)).item()
+            score += torch.sum(self.score(d, log_prob, num_samples)).item()
 
         return score
 
