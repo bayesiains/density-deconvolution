@@ -4,6 +4,8 @@ import torch.utils.data as data_utils
 
 from .sgd_gmm import SGDGMMModule, BaseSGDGMM
 
+from ..utils.sampling import minibatch_sample
+
 mvn = dist.multivariate_normal.MultivariateNormal
 
 
@@ -52,3 +54,74 @@ class SGDDeconvGMM(BaseSGDGMM):
             k_means_factor=k_means_factor, k_means_iters=k_means_iters,
             lr_step=lr_step, lr_gamma=lr_gamma, device=device
         )
+        
+    def _sample_prior(self, num_samples, context=None):
+        
+        weights = self.module.soft_max(self.module.soft_weights)
+        idx = dist.Categorical(probs=weights).sample([num_samples])
+        X = dist.MultivariateNormal(loc=self.module.means, scale_tril=self.module.L).sample([num_samples])
+        
+        return X[
+            torch.arange(num_samples, device=self.device),
+            idx,
+            :
+        ]
+    
+    def sample_prior(self, num_samples, device=torch.device('cpu')):
+        with torch.no_grad():
+             return minibatch_sample(
+                self._sample_prior,
+                num_samples,
+                self.d,
+                self.batch_size,
+                device
+            )
+        
+    def _sample_posterior(self, x, num_samples, context=None):
+        log_weights = torch.log(self.module.soft_max(self.module.soft_weights))
+        T = self.module.covars[None, :, :, :] + x[1][:, None, :, :]
+        
+        p_weights = log_weights + dist.MultivariateNormal(
+            loc=self.module.means, covariance_matrix=T
+        ).log_prob(x[0][:, None, :])
+        p_weights -= torch.logsumexp(p_weights, axis=1)[:, None]
+        
+        L_t = torch.cholesky(T)
+        T_inv = torch.cholesky_solve(torch.eye(self.d, device=self.device), L_t)
+        
+        diff = x[0][:, None, :] - self.module.means
+        T_prod = torch.matmul(T_inv, diff[:, :, :, None])
+        p_means = self.module.means + torch.matmul(
+            self.module.covars,
+            T_prod
+        ).squeeze()
+        
+        p_covars = self.module.covars - torch.matmul(
+            self.module.covars,
+            torch.matmul(T_inv, self.module.covars)
+        )
+        
+        idx = dist.Categorical(logits=p_weights).sample([num_samples])
+        samples = dist.MultivariateNormal(loc=p_means, covariance_matrix=p_covars).sample([num_samples])
+                
+        return samples.transpose(0, 1)[
+            torch.arange(len(x), device=self.device)[:, None, None, None],
+            torch.arange(num_samples, device=self.device)[None, :, None, None],
+            idx.T[:, :, None, None],
+            torch.arange(self.d, device=self.device)[None, None, None, :]
+        ].squeeze()
+    
+    def sample_posterior(self, x, num_samples, device=torch.device('cpu')):
+        with torch.no_grad():
+            return minibatch_sample(
+                self._sample_posterior,
+                num_samples,
+                self.d,
+                self.batch_size,
+                device,
+                x=x
+            )
+                                                          
+                                                    
+                                                          
+        
