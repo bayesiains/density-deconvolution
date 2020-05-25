@@ -191,8 +191,8 @@ def data_gen(data, n_samples, noise=None, rng=np.random):
     elif data == 'pinwheel':
         radial_std = 0.3
         tangential_std = 0.1
-        num_classes = 5
-        num_per_class = n_samples // 5
+        num_classes = 3
+        num_per_class = n_samples // num_classes
         rate = 0.25
         rads = np.linspace(0, 2 * np.pi, num_classes, endpoint=False)
 
@@ -206,7 +206,7 @@ def data_gen(data, n_samples, noise=None, rng=np.random):
             [np.cos(angles), -np.sin(angles), np.sin(angles), np.cos(angles)])
         rotations = np.reshape(rotations.T, (-1, 2, 2))
 
-        return 2 * rng.permutation(np.einsum('ti', 'tij->tj', features, rotations)), None
+        return 2 * rng.permutation(np.einsum('ti, tij -> tj', features, rotations)), None
 
     elif data == '2spirals':
         if noise is None:
