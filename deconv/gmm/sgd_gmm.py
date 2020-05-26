@@ -198,7 +198,7 @@ class BaseSGDGMM(ABC):
                     print('Epoch {}, Loss: {}'.format(i, train_loss))
 
             if val_data:
-                if val_loss < best_val_loss:
+                if val_loss > best_val_loss:
                     no_improvement_epochs = 0
                     best_val_loss = val_loss
                 else:
