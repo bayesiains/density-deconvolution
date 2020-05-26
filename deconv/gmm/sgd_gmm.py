@@ -156,7 +156,7 @@ class BaseSGDGMM(ABC):
 
         prev_loss = float('inf')
         if val_data:
-            best_val_loss = float('inf')
+            best_val_loss = float('-inf')
             no_improvement_epochs = 0
 
         for i in range(self.epochs):
