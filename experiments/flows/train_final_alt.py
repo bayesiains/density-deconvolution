@@ -182,6 +182,14 @@ def main():
             epoch += 1
         break
 
+        model = model.load_state_dict(best_model)
+        test_loss_clean = - \
+                model.model._prior.log_prob(
+                    torch.from_numpy(test_data).to(device)).mean()
+        message = 'Final test loss (clean) = %.5f' % test_loss_clean
+        logger.info(message)
+
+
 
 if __name__ == '__main__':
     main()
