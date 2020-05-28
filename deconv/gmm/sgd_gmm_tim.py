@@ -6,7 +6,7 @@ import torch.distributions as dist
 import torch.nn as nn
 import torch.utils.data as data_utils
 
-from .util import minibatch_k_means
+from .util import minibatch_k_means, k_means
 
 mvn = dist.multivariate_normal.MultivariateNormal
 
@@ -109,7 +109,7 @@ class BaseSGDGMM(ABC):
             torch.diagonal(self.module.covars, dim1=-1, dim2=-2)
         return l.sum()
 
-    def fit(self, data, logger, val_data=None, verbose=False, interval=1):
+    def fit(self, data, logger, val_data=None, verbose=False, interval=1, es_tl=None):
 
         n_total = len(data)
 
@@ -148,7 +148,9 @@ class BaseSGDGMM(ABC):
                 # pin_memory=True
             )
 
-        self.init_params(loader)
+        # self.init_params(loader)
+        self.init_params(data_utils.DataLoader(
+            data, batch_size=n_total, shuffle=True))
 
         self.train_loss_curve = []
 
@@ -181,6 +183,10 @@ class BaseSGDGMM(ABC):
             train_loss /= len(data)
 
             self.train_loss_curve.append(train_loss)
+
+            if es_tl is not None:
+                if train_loss < es_tl:
+                    break
 
             if val_data:
                 val_loss = -self.score_batch(val_data) / len(val_data)

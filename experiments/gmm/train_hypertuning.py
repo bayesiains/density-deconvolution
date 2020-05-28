@@ -75,8 +75,8 @@ def main():
     kf = KFold(n_splits=5)
 
     # 54 combinations
-    lr_list = [5e-2, 1e-2, 5e-3]
-    K_list = [10, 50, 100, 500]
+    lr_list = [1e-2, 5e-3, 1e-3]
+    K_list = [20, 50, 100, 200, 500]
 
     n_combs = 0
     for lr, K in product(lr_list, K_list):
