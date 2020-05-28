@@ -24,7 +24,7 @@ from sklearn.datasets import load_boston
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--data', type=str, default='boston',
-                    choices=['boston', 'white_wine'])
+                    choices=['boston', 'white_wine', 'red_wine', 'ionosphere'])
 parser.add_argument('--covar', type=float, default=0.1)
 parser.add_argument('--seed', type=int, default=42)
 parser.add_argument('--batch_size', type=int, default=100)
@@ -78,6 +78,11 @@ def main():
         data = np.load('data_small/boston_no_discrete.npy')
     elif args.data == 'white_wine':
         data = np.load('data_small/white_no_discrete_no_corr_0.98.npy')
+    elif args.data == 'red_wine':
+        data = np.load('data_small/red_no_discrete_no_corr_0.98.npy')
+    elif args.data == 'ionosphere':
+        data = np.load('data_small/ionosphere_no_discrete_no_corr_0.98.npy')
+
     n_features = data.shape[1]
     n_train = int(data.shape[0] * 0.9)
     train_data_clean = data[:n_train]
