@@ -109,27 +109,27 @@ def main():
 
     optimizer = torch.optim.Adam(params=model.parameters(), lr=args.lr)
 
-    # # training
-    # epoch = 0
-    # while epoch < args.n_epochs:
-    #     train_loss = 0
-    #     for batch_idx, data in enumerate(train_loader):
-    #         data[0] = data[0].to(device)
-    #         data[1] = data[1].to(device)
+    # training
+    epoch = 0
+    while epoch < args.n_epochs:
+        train_loss = 0
+        for batch_idx, data in enumerate(train_loader):
+            data[0] = data[0].to(device)
+            data[1] = data[1].to(device)
 
-    #         log_prob = model.score(data)
-    #         loss = -log_prob.mean()
-    #         train_loss += -torch.sum(log_prob).item()
-    #         optimizer.zero_grad()
-    #         loss.backward(retain_graph=True)
-    #         optimizer.step()
+            log_prob = model.score(data)
+            loss = -log_prob.mean()
+            train_loss += -torch.sum(log_prob).item()
+            optimizer.zero_grad()
+            loss.backward(retain_graph=True)
+            optimizer.step()
 
-    #     train_loss /= n_train
-    #     message = 'Train loss %.5f' % train_loss
-    #     logger.info(message)
+        train_loss /= n_train
+        message = 'Train loss %.5f' % train_loss
+        logger.info(message)
 
-    #     if train_loss < 9.02486:  # boston housing
-    #         break
+        if train_loss < 9.02486:  # boston housing
+            break
 
     test_loss_clean = - \
         model.model._prior.log_prob(
