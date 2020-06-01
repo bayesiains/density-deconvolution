@@ -53,7 +53,7 @@ else:
     torch.set_default_tensor_type('torch.DoubleTensor')
 
 
-args.dir = 'results_flow/' + \
+args.dir = 'results_freezing_flow/' + \
     str(args.objective) + '/' + str(args.covar) + '/'
 
 if not os.path.exists(args.dir):
@@ -63,7 +63,8 @@ if args.name is None:
     name = 'eval_' + str(args.data) + '_lr_' + str(args.lr) + '_fspr_' + str(args.flow_steps_prior) + '_fspo_' + \
         str(args.flow_steps_posterior) + '_mf_' + \
         str(args.maf_features) + '_mhb_' + \
-        str(args.maf_hidden_blocks) + '_seed_' + str(args.seed)
+        str(args.maf_hidden_blocks) + '_seed_' + str(args.seed) + '_pr_iter_' + \
+        str(args.prior_iter) + '_po_iter_' + str(args.posterior_iter)
 
 
 if not os.path.exists(args.dir + 'logs/'):
