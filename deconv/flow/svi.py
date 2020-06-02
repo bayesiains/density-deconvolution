@@ -1,255 +1,28 @@
 import torch
-import torch.nn as nn 
 import torch.utils.data as data_utils
 from torch.nn.utils import clip_grad_norm_
 
 from nflows import flows, transforms, utils
 from nflows.distributions import ConditionalDiagonalNormal, StandardNormal
 
-from .distributions import DeconvGaussian, DeconvGaussianToy, DeconvGaussianToyNoise
+from .distributions import DeconvGaussian
 from .maf import MAFlow
 from .nn import DeconvInputEncoder
-from .vae import VariationalAutoencoder, VariationalAutoencoderToyNoise
-from .mdn import MultivariateGaussianDiagonalMDN
+from .vae import VariationalAutoencoder
 
 
 from ..utils.sampling import minibatch_sample
 
-class SVIFlowToyNoise(nn.Module):
-    def __init__(self, 
-                 dimensions, 
-                 objective,
-                 posterior_context_size,
-                 batch_size,
-                 device,
-                 maf_steps_prior,
-                 maf_steps_posterior,
-                 maf_features,
-                 maf_hidden_blocks,
-                 K=1,
-                 posterior_mdn_net=None,
-                 posterior_mdn_components=None,
-                 act_fun=nn.functional.relu):
-    
-        super(SVIFlowToyNoise, self).__init__()
-
-        self.dimensions = dimensions
-        self.objective = objective
-        self.posterior_context_size = posterior_context_size 
-        self.batch_size = batch_size
-        self.device = device
-        self.maf_steps_prior = maf_steps_prior
-        self.maf_steps_posterior = maf_steps_posterior
-        self.maf_features = maf_features
-        self.maf_hidden_blocks = maf_hidden_blocks
-        self.K = K
-        self.posterior_mdn_net = posterior_mdn_net
-        self.posterior_mdn_components = self.psoterior_mdn_components
-        self.act_fun = act_fun
-
-        self.model = VariationalAutoencoderToyNoise(prior=self._create_prior(),
-                                                    approximate_posterior=self._create_approximate_posterior(),
-                                                    likelihood=self._create_likelihood(),
-                                                    inputs_encoder=self._create_input_encoder()).to(device)
-
-    def _create_approximate_posterior(self):
-        if self.posterior_mdn_net is not None:
-            mdn_hidden = nn.ModuleList()
-            mdn_hidden.append(nn.Linear(self.dimensions, self.posterior_mdn_net[0]))
-
-            for h0, h1 in zip(self.posterior_mdn_net[:-1], self.posterior_mdn_net[1:]):
-                mdn_hidden.append(nn.Linear(h0, h1))
-
-            distribution = MultivariateGaussianDiagonalMDN(self.dimensions,
-                                                           self.dimensions,
-                                                           self.posterior_mdn_net[-1],
-                                                           mdn_hidden,
-                                                           self.psoterior_mdn_components,
-                                                           self.act_fun)
-            self.diagonal_mdn = distribution
-
-        else:
-            distribution = StandardNormal((self.dimensions,))
-            self.diagonal_mdn = None
-
-        posterior_transform = self._create_transform(self.maf_steps_posterior, self.posterior_context_size)
-
-        return flows.Flow(transforms.InverseTransform(posterior_transform),
-                          distribution)
-
-    def _create_prior(self):
-        return DeconvGaussianToyNoise()
-
-    def _create_likelihood(self):
-        self.transform = self._create_transform(self.maf_steps_prior)
-        distribution = StandardNormal((self.dimensions,))
-
-        return flows.Flow(self.transform,
-                          distribution)
-
-    def _create_input_encoder(self):
-        def input_encoder(data):
-            w, _ = data
-
-            if self.diagonal_mdn is not None:
-                return self.diagonal_mdn.get_context(w)
-
-            else:
-                return w
-
-        return input_encoder
-
-    def _create_linear_transform(self):
-        return transforms.CompositeTransform([transforms.RandomPermutation(features=self.dimensions),
-                                              transforms.LULinear(self.dimensions, identity_init=True)])
-
-    def _create_transform(self, flow_steps, context_features=None):
-        return transforms.CompositeTransform([transforms.CompositeTransform([self._create_linear_transform(),
-                                                                             self._create_maf_transform(context_features)]) for i in range(flow_steps)] + 
-                                             [self._create_linear_transform()])
-
-    def _create_maf_transform(self, context_features=None): 
-        return transforms.MaskedAffineAutoregressiveTransform(features=self.dimensions,
-                                                              hidden_features=self.maf_features,
-                                                              context_features=context_features,
-                                                              num_blocks=self.maf_hidden_blocks,
-                                                              use_residual_blocks=False,
-                                                              random_mask=False,
-                                                              activation=torch.nn.functional.relu,
-                                                              dropout_probability=0.0,
-                                                              use_batch_norm=False)
-
-    def score(self, data):
-        self.model.eval()
-        if self.objective == 'iwae':
-            return self.model.log_prob_lower_bound(data, num_samples=self.K)
-
-        elif self.objective == 'elbo':
-            return self.model.stochastic_elbo(data, num_samples=self.K)
-
-class SVIFlowToy(nn.Module): 
-    def __init__(self, 
-                 dimensions, 
-                 objective,
-                 posterior_context_size,
-                 batch_size,
-                 device,
-                 maf_steps_prior,
-                 maf_steps_posterior,
-                 maf_features,
-                 maf_hidden_blocks,
-                 K=1,
-                 posterior_mdn_net=None,
-                 posterior_mdn_components=None,
-                 act_fun=nn.functional.relu):
-    
-        super(SVIFlowToy, self).__init__()
-
-        self.dimensions = dimensions
-        self.objective = objective
-        self.posterior_context_size = posterior_context_size 
-        self.batch_size = batch_size
-        self.device = device
-        self.maf_steps_prior = maf_steps_prior
-        self.maf_steps_posterior = maf_steps_posterior
-        self.maf_features = maf_features
-        self.maf_hidden_blocks = maf_hidden_blocks
-        self.K = K
-        self.posterior_mdn_net = posterior_mdn_net
-        self.posterior_mdn_components = posterior_mdn_components
-        self.act_fun = act_fun
-
-        self.model = VariationalAutoencoder(prior=self._create_prior(),
-                                                approximate_posterior=self._create_approximate_posterior(),
-                                                    likelihood=self._create_likelihood(),
-                                                    inputs_encoder=self._create_input_encoder()).to(device)
-
-    def _create_approximate_posterior(self):
-        if self.posterior_mdn_net is not None:
-            mdn_hidden = nn.ModuleList()
-            mdn_hidden.append(nn.Linear(self.dimensions, self.posterior_mdn_net[0]))
-
-            for h0, h1 in zip(self.posterior_mdn_net[:-1], self.posterior_mdn_net[1:]):
-                mdn_hidden.append(nn.Linear(h0, h1))
-
-            distribution = MultivariateGaussianDiagonalMDN(self.dimensions,
-                                                           self.dimensions,
-                                                           self.posterior_mdn_net[-1],
-                                                           mdn_hidden,
-                                                           self.posterior_mdn_components,
-                                                           self.act_fun)
-            self.diagonal_mdn = distribution
-
-        else:
-            distribution = StandardNormal((self.dimensions,))
-            self.diagonal_mdn = None
-
-        posterior_transform = self._create_transform(self.maf_steps_posterior, self.posterior_context_size)
-
-        return flows.Flow(transforms.InverseTransform(posterior_transform),
-                          distribution)
-
-    def _create_prior(self):
-        self.transform = self._create_transform(self.maf_steps_prior)
-        distribution = StandardNormal((self.dimensions,))
-
-        return flows.Flow(self.transform,
-                          distribution)
-
-    def _create_likelihood(self):
-        return DeconvGaussianToy()
-
-    def _create_input_encoder(self):
-        def input_encoder(data):
-            w, _ = data
-
-            if self.diagonal_mdn is not None:
-                return self.diagonal_mdn.get_context(w)
-
-            else:
-                return w
-
-        return input_encoder
-
-    def _create_linear_transform(self):
-        return transforms.CompositeTransform([transforms.RandomPermutation(features=self.dimensions),
-                                              transforms.LULinear(self.dimensions, identity_init=True)])
-
-    def _create_transform(self, flow_steps, context_features=None):
-        return transforms.CompositeTransform([transforms.CompositeTransform([self._create_linear_transform(),
-                                                                             self._create_maf_transform(context_features)]) for i in range(flow_steps)] + 
-                                             [self._create_linear_transform()])
-
-    def _create_maf_transform(self, context_features=None): #fix this with parameters
-        return transforms.MaskedAffineAutoregressiveTransform(features=self.dimensions,
-                                                              hidden_features=self.maf_features,
-                                                              context_features=context_features,
-                                                              num_blocks=self.maf_hidden_blocks,
-                                                              use_residual_blocks=False,
-                                                              random_mask=False,
-                                                              activation=torch.nn.functional.relu,
-                                                              dropout_probability=0.0,
-                                                              use_batch_norm=False)
-
-    def score(self, data):
-        self.model.eval()
-        if self.objective == 'iwae':
-            return self.model.log_prob_lower_bound(data, num_samples=self.K)
-
-        elif self.objective == 'elbo':
-            return self.model.stochastic_elbo(data, num_samples=self.K)
-        
-
-
 class SVIFlow(MAFlow):
 
-    def __init__(self, dimensions, flow_steps, lr, epochs, context_size=64,
+    def __init__(self, dimensions, flow_steps, lr, epochs, context_size=64, hidden_features=128,
                  batch_size=256, kl_warmup=0.2, kl_init_factor=0.5,
                  n_samples=50, use_iwae=False, device=None):
         super().__init__(
             dimensions, flow_steps, lr, epochs, batch_size, device
         )
         self.context_size = context_size
+        self.hidden_features = hidden_features
         self.kl_warmup = kl_warmup
         self.kl_init_factor = kl_init_factor
         
@@ -266,7 +39,7 @@ class SVIFlow(MAFlow):
         self.model.to(self.device)
 
     def _create_prior(self):
-        self.transform = self._create_transform()
+        self.transform = self._create_transform(context_features=None, hidden_features=self.hidden_features)
         distribution = StandardNormal((self.dimensions,))
         return flows.Flow(
             self.transform,
@@ -283,7 +56,7 @@ class SVIFlow(MAFlow):
 
         distribution = StandardNormal((self.dimensions,))
 
-        posterior_transform = self._create_transform(self.context_size)
+        posterior_transform = self._create_transform(self.context_size, hidden_features=self.hidden_features)
 
         return flows.Flow(
             transforms.InverseTransform(

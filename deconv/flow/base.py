@@ -8,7 +8,7 @@ from nflows import distributions, flows, transforms
 class BaseFlow(ABC):
     """ABC for flow-type density estimation."""
 
-    def __init__(self, dimensions, flow_steps, lr, epochs, batch_size=256, device=None):
+    def __init__(self, dimensions, flow_steps=5, lr=1e-3, epochs=100, batch_size=256, device=None):
 
         self.dimensions = dimensions
         self.flow_steps = flow_steps

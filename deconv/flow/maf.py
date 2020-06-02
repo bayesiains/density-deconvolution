@@ -6,10 +6,10 @@ from .base import BaseFlow
 
 class MAFlow(BaseFlow):
 
-    def _create_maf_transform(self, context_features=None):
+    def _create_maf_transform(self, context_features=None, hidden_features=128):
         return transforms.MaskedAffineAutoregressiveTransform(
             features=self.dimensions,
-            hidden_features=256,
+            hidden_features=hidden_features,
             context_features=context_features,
             num_blocks=2,
             use_residual_blocks=True,
@@ -19,13 +19,13 @@ class MAFlow(BaseFlow):
             use_batch_norm=False
         )
 
-    def _create_transform(self, context_features=None):
+    def _create_transform(self, context_features=None, hidden_features=128):
 
         return transforms.CompositeTransform([
 
             transforms.CompositeTransform([
                 self._create_linear_transform(),
-                self._create_maf_transform(context_features)
+                self._create_maf_transform(context_features, hidden_features)
             ]) for i in range(self.flow_steps)
         ] + [
             self._create_linear_transform()

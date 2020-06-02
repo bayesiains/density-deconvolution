@@ -13,13 +13,18 @@ import corner
 from deconv.gmm.sgd_deconv_gmm import SGDDeconvGMM
 from deconv.gmm.data import DeconvDataset
 from deconv.flow.svi import SVIFlow
+from deconv.flow.svi_gmm import SVIGMMFlow
+from deconv.utils.data_gen import generate_mixture_data
 
 parser = argparse.ArgumentParser(description='Train SVI model on toy GMM.')
 
+parser.add_argument('-g', '--gmm', action='store_true')
+parser.add_argument('-s', '--svi-gmm', action='store_true')
 parser.add_argument('-k', '--samples', type=int)
 parser.add_argument('-e', '--epochs', type=int)
 parser.add_argument('-l', '--learning-rate', type=float)
 parser.add_argument('-i', '--use-iwae', action='store_true')
+parser.add_argument('-m', '--hidden-features', type=int)
 parser.add_argument('output_prefix')
 
 args = parser.parse_args()
@@ -29,75 +34,54 @@ D = 2
 N = 50000
 N_val = int(0.25 * N)
 
-torch.set_default_tensor_type(torch.FloatTensor)
+_, S, (z_train, x_train), (z_val, x_val), _ = generate_mixture_data()
 
-ref_gmm = SGDDeconvGMM(
-    K,
-    D,
-    batch_size=512,
-    device=torch.device('cpu')
-)
+if args.gmm:
+    if args.svi_gmm:
+        train_data = DeconvDataset(x_train.squeeze(), torch.cholesky(S.repeat(N, 1, 1)))
+        val_data = DeconvDataset(x_val.squeeze(), torch.cholesky(S.repeat(N_val, 1, 1)))
+        svi_gmm = SVIGMMFlow(
+            2,
+            5,
+            device=torch.device('cuda'),
+            batch_size=512,
+            epochs=args.epochs,
+            lr=args.learning_rate,
+            n_samples=args.samples,
+            use_iwae=args.use_iwae,
+            context_size=64,
+            hidden_features=args.hidden_features
+        )
+        svi_gmm.fit(train_data, val_data=val_data)
+        torch.save(svi_gmm.model.state_dict(), args.output_prefix + '_params.pt')
+    else:
+        train_data = DeconvDataset(x_train.squeeze(), S.repeat(N, 1, 1))
+        val_data = DeconvDataset(x_val.squeeze(), S.repeat(N_val, 1, 1))
+        gmm = SGDDeconvGMM(
+            K,
+            D,
+            batch_size=200,
+            epochs=args.epochs,
+            lr=args.learning_rate,
+            device=torch.device('cuda')
+        )
+        gmm.fit(train_data, val_data=val_data, verbose=True)
+        torch.save(gmm.module.state_dict(), args.output_prefix + '_params.pt')
+else:
+    train_data = DeconvDataset(x_train.squeeze(), torch.cholesky(S.repeat(N, 1, 1)))
+    val_data = DeconvDataset(x_val.squeeze(), torch.cholesky(S.repeat(N_val, 1, 1)))
+    svi = SVIFlow(
+        2,
+        5,
+        device=torch.device('cuda'),
+        batch_size=512,
+        epochs=args.epochs,
+        lr=args.learning_rate,
+        n_samples=args.samples,
+        use_iwae=args.use_iwae,
+        context_size=64,
+        hidden_features=args.hidden_features
+    )
+    svi.fit(train_data, val_data=val_data)
 
-ref_gmm.module.soft_weights.data = torch.zeros(K)
-scale = 2
-
-ref_gmm.module.means.data = torch.Tensor([
-    [-scale, 0],
-    [scale, 0],
-    [0, -scale],
-    [0, scale]
-])
-
-short_std = 0.3
-long_std = 1
-
-stds = torch.Tensor([
-    [short_std, long_std],
-    [short_std, long_std],
-    [long_std, short_std],
-    [long_std, short_std]
-])
-
-ref_gmm.module.l_diag.data = torch.log(stds)
-
-state = torch.get_rng_state()
-torch.manual_seed(432988)
-
-z_train = ref_gmm.sample_prior(N)
-z_val = ref_gmm.sample_prior(N_val)
-
-noise_short = 0.1
-noise_long = 1.0
-
-S = torch.Tensor([
-    [noise_short, 0],
-    [0, noise_long]
-])
-
-noise_distribution = torch.distributions.MultivariateNormal(
-    loc=torch.Tensor([0, 0]),
-    covariance_matrix=S
-)
-
-x_train = z_train + noise_distribution.sample([N])
-x_val = z_val + noise_distribution.sample([N_val])
-
-torch.set_rng_state(state)
-
-train_data = DeconvDataset(x_train.squeeze(), torch.cholesky(S.repeat(N, 1, 1)))
-val_data = DeconvDataset(x_val.squeeze(), torch.cholesky(S.repeat(N, 1, 1)))
-
-svi = SVIFlow(
-    2,
-    5,
-    device=torch.device('cuda'),
-    batch_size=512,
-    epochs=args.epochs,
-    lr=args.learning_rate,
-    n_samples=args.samples,
-    use_iwae=args.use_iwae,
-    context_size=64
-)
-svi.fit(train_data, val_data=val_data)
-
-torch.save(svi.model.state_dict(), args.output_prefix + '_params.pt')
+    torch.save(svi.model.state_dict(), args.output_prefix + '_params.pt')

@@ -56,16 +56,7 @@ class SGDDeconvGMM(BaseSGDGMM):
         )
         
     def _sample_prior(self, num_samples, context=None):
-        
-        weights = self.module.soft_max(self.module.soft_weights)
-        idx = dist.Categorical(probs=weights).sample([num_samples])
-        X = dist.MultivariateNormal(loc=self.module.means, scale_tril=self.module.L).sample([num_samples])
-        
-        return X[
-            torch.arange(num_samples, device=self.device),
-            idx,
-            :
-        ]
+        return self._sample(num_samples)
     
     def sample_prior(self, num_samples, device=torch.device('cpu')):
         with torch.no_grad():
@@ -103,9 +94,9 @@ class SGDDeconvGMM(BaseSGDGMM):
         
         idx = dist.Categorical(logits=p_weights).sample([num_samples])
         samples = dist.MultivariateNormal(loc=p_means, covariance_matrix=p_covars).sample([num_samples])
-                
+        
         return samples.transpose(0, 1)[
-            torch.arange(len(x), device=self.device)[:, None, None, None],
+            torch.arange(len(x[0]), device=self.device)[:, None, None, None],
             torch.arange(num_samples, device=self.device)[None, :, None, None],
             idx.T[:, :, None, None],
             torch.arange(self.d, device=self.device)[None, None, None, :]
