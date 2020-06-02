@@ -95,7 +95,6 @@ def main():
 
     kf = KFold(n_splits=5)
 
-    # 54 combinations
     lr_list = [1e-3, 5e-4, 1e-4]
     flow_steps_prior_list = [3, 4, 5]
     flow_steps_posterior_list = [4, 5]
@@ -104,14 +103,14 @@ def main():
     M_list = [5, 10, 20]
 
     n_combs = 0
-    for lr, fspr, fspo, maf_f, maf_h in product(lr_list, flow_steps_posterior_list, flow_steps_posterior_list, maf_features_list, maf_hidden_blocks_list):
-        print(n_combs, (lr, fspr, fspo, maf_f, maf_h))
+    for lr, fspr, fspo, maf_f, maf_h, M in product(lr_list, flow_steps_prior_list, flow_steps_posterior_list, maf_features_list, maf_hidden_blocks_list, M_list):
+        print(n_combs, (lr, fspr, fspo, maf_f, maf_h, M))
         n_combs += 1
 
     best_eval = np.zeros((n_combs, 5))
 
     counter = 0
-    for lr, fspr, fspo, maf_f, maf_h, M in product(lr_list, flow_steps_posterior_list, flow_steps_posterior_list, maf_features_list, maf_hidden_blocks_list, M_list):
+    for lr, fspr, fspo, maf_f, maf_h, M in product(lr_list, flow_steps_prior_list, flow_steps_posterior_list, maf_features_list, maf_hidden_blocks_list, M_list):
         logger.info((lr, fspr, fspo, maf_f, maf_h, M))
 
         for i, (train_index, eval_index) in enumerate(kf.split(train_data)):
@@ -170,7 +169,7 @@ def main():
 
                     ap = copy.deepcopy(
                         model.model._approximate_posterior.state_dict())
-                    for i in range(M):
+                    for _ in range(M):
 
                         loss = -model.score(data).mean()
                         message = 'Loss intermediate %s: %f' % (i, loss)
@@ -229,11 +228,11 @@ def main():
                 epoch += 1
 
             best_eval[counter, i] = best_eval_loss
-            np.save(args.data + '_hypertuning_results_tmp', best_eval)
+            np.save(args.data + '_hypertuning_M_results_tmp', best_eval)
 
         counter += 1
 
-    np.save(args.data + '_hypertuning_results', best_eval)
+    np.save(args.data + '_hypertuning_M_results', best_eval)
 
 
 if __name__ == '__main__':
