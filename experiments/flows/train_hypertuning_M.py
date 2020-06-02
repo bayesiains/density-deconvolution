@@ -44,7 +44,7 @@ if torch.cuda.is_available():
 else:
     torch.set_default_tensor_type('torch.DoubleTensor')
 
-args.dir = 'hypertuning/' + '/' + \
+args.dir = 'hypertuning_M/' + '/' + \
     str(args.objective) + '/' + str(args.covar) + '/'
 
 if not os.path.exists(args.dir):
