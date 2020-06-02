@@ -44,6 +44,28 @@ def data_gen(data, n_samples, noise=None, rng=np.random):
 
         return util_shuffle(samples), None
 
+    elif data == 'mixture_final':
+        coins = np.random.choice(
+            4, n_samples, p=[1. / 4, 1. / 4, 1. / 4, 1. / 4])
+        bincounts = np.bincount(coins)
+
+        means = [[-2.0, 0.0], [2.0, 0.0], [0.0, -2.0], [0.0, 2.0]]
+        covars = [[[0.3, 0.0], [0.0, 1.0]],
+                  [[0.3, 0.0], [0.0, 1.0]],
+                  [[1.0, 0.0], [0.0, 0.3]],
+                  [[1.0, 0.0], [0.0, 0.3]]]
+
+        samples = np.zeros((n_samples, 2))
+
+        offset = 0
+        for i in range(4):
+            samples[offset:(offset + bincounts[i])
+                    ] = np.random.multivariate_normal(means[i], covars[i], bincounts[i])
+
+            offset += bincounts[i]
+
+        return util_shuffle(samples), None
+
     elif data == 'mixture_2':
         coins = np.random.choice(2, n_samples, p=[1. / 2, 1. / 2])
         bincounts = np.bincount(coins)

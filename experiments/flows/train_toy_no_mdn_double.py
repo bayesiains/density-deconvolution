@@ -9,7 +9,7 @@ import corner
 from torch.utils.data import DataLoader
 import argparse
 
-# matplotlib.use('agg')
+matplotlib.use('agg')
 
 from deconv.utils.make_2d_toy_data import data_gen
 from deconv.utils.make_2d_toy_noise_covar import covar_gen
@@ -21,8 +21,8 @@ from deconv.gmm.data import DeconvDataset
 parser = argparse.ArgumentParser()
 parser.add_argument('--infer', type=str, default='true_data',
                     choices=['noise', 'true_data'])
-parser.add_argument('--data', type=str, default='mixture_1')
-parser.add_argument('--covar', type=str, default='fixed_diagonal_covar1')
+parser.add_argument('--data', type=str, default='mixture_final')
+parser.add_argument('--covar', type=str, default='gmm')
 parser.add_argument('--n_train_points', type=int, default=int(1e5))
 parser.add_argument('--n_test_points', type=int, default=int(1e3))
 parser.add_argument('--n_eval_points', type=int, default=int(1e3))
@@ -30,8 +30,8 @@ parser.add_argument('--n_kl_points', type=int, default=int(1e4))
 parser.add_argument('--eval_based_scheduler', type=str, default='10,20,30')
 parser.add_argument('--lr', type=float, default=5e-3)
 parser.add_argument('--seed', type=int, default=42)
-parser.add_argument('--batch_size', type=int, default=100)
-parser.add_argument('--test_batch_size', type=int, default=100)
+parser.add_argument('--batch_size', type=int, default=512)
+parser.add_argument('--test_batch_size', type=int, default=512)
 parser.add_argument('--gpu', type=int, default=0)
 parser.add_argument('--dir', type=str, default=None)
 parser.add_argument('--name', type=str, default=None)
@@ -59,7 +59,7 @@ else:
     torch.set_default_tensor_type('torch.DoubleTensor')
 
 if args.dir is None:
-    args.dir = 'toy_double/' + str(args.infer) + '/' + str(
+    args.dir = 'toy_james/' + str(args.infer) + '/' + str(
         args.objective) + '/' + str(args.data) + '/' + str(args.covar) + '/'
 
     if not os.path.exists(args.dir):
@@ -125,7 +125,8 @@ def main():
     train_data_clean = data_gen(args.data, args.n_train_points)[
         0].astype(np.float64)
 
-    #plt.scatter(train_data_clean[:, 0], train_data_clean[:, 1])
+    corner.hist2d(train_data_clean[:, 0], train_data_clean[:, 1])
+    plt.show()
 
     train_data = np.zeros_like(train_data_clean)
     for i in range(args.n_train_points):
@@ -133,8 +134,8 @@ def main():
             np.random.multivariate_normal(
                 mean=np.zeros((2,)), cov=train_covar[i])
 
-    #plt.scatter(train_data[:, 0], train_data[:, 1])
-    # plt.show()
+    corner.hist2d(train_data[:, 0], train_data[:, 1])
+    plt.show()
 
     train_covar = torch.from_numpy(train_covar)
     train_data = torch.from_numpy(train_data.astype(np.float64))

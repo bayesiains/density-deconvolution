@@ -3,7 +3,14 @@ from sklearn.utils import shuffle as util_shuffle
 
 
 def covar_gen(covar, n_samples, rng=np.random):
-    if covar == 'fixed_diagonal_covar1':
+    if covar == 'gmm':
+        covar = np.zeros((n_samples, 2, 2))
+        covar[:] = np.array([[0.1, 0.0],
+                             [0.0, 1.0]])
+
+        return covar
+
+    elif covar == 'fixed_diagonal_covar1':
         covar = np.zeros((n_samples, 2, 2))
         covar[:] = np.array([[0.1, 0.0],
                              [0.0, 3.0]])
