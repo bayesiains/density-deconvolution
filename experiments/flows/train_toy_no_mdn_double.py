@@ -9,7 +9,7 @@ import corner
 from torch.utils.data import DataLoader
 import argparse
 
-matplotlib.use('agg')
+#matplotlib.use('agg')
 
 from deconv.utils.make_2d_toy_data import data_gen
 from deconv.utils.make_2d_toy_noise_covar import covar_gen
