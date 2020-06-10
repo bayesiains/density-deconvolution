@@ -67,15 +67,15 @@ class SGDDeconvGMM(BaseSGDGMM):
                 self.batch_size,
                 device
             )
-        
-    def _sample_posterior(self, x, num_samples, context=None):
+            
+    def posterior_params(self, x):
         log_weights = torch.log(self.module.soft_max(self.module.soft_weights))
         T = self.module.covars[None, :, :, :] + x[1][:, None, :, :]
         
-        p_weights = log_weights + dist.MultivariateNormal(
+        w = log_weights + dist.MultivariateNormal(
             loc=self.module.means, covariance_matrix=T
         ).log_prob(x[0][:, None, :])
-        p_weights -= torch.logsumexp(p_weights, axis=1)[:, None]
+        p_weights = w - torch.logsumexp(w, axis=1)[:, None]
         
         L_t = torch.cholesky(T)
         T_inv = torch.cholesky_solve(torch.eye(self.d, device=self.device), L_t)
@@ -91,6 +91,22 @@ class SGDDeconvGMM(BaseSGDGMM):
             self.module.covars,
             torch.matmul(T_inv, self.module.covars)
         )
+        return p_weights, p_means, p_covars
+    
+    def posterior_log_prob(self, x, context):
+        p_weights, p_means, p_covars = self.posterior_params(context)
+        if len(x.shape) == 2:
+            log_p = dist.MultivariateNormal(loc=p_means, covariance_matrix=p_covars).log_prob(x[:, None, None, :])
+            return torch.logsumexp(log_p + p_weights, dim=2)
+        else:
+            log_p = dist.MultivariateNormal(
+                loc=p_means, covariance_matrix=p_covars
+            ).log_prob(x.transpose(0, 1)[:, :, None, :])
+            return torch.logsumexp(log_p + p_weights, dim=2).transpose(0, 1)
+
+    def _sample_posterior(self, x, num_samples, context=None):
+        
+        p_weights, p_means, p_covars = self.posterior_params(x)
         
         idx = dist.Categorical(logits=p_weights).sample([num_samples])
         samples = dist.MultivariateNormal(loc=p_means, covariance_matrix=p_covars).sample([num_samples])

@@ -60,6 +60,9 @@ class SGDGMMModule(nn.Module):
         log_prob = torch.logsumexp(log_resp, dim=1)
 
         return log_prob
+    
+    def log_prob(self, data):
+        return self.forward([data])
 
 
 class BaseSGDGMM(ABC):
@@ -154,9 +157,9 @@ class BaseSGDGMM(ABC):
         if val_data:
             self.val_loss_curve = []
 
-        prev_loss = float('inf')
+        prev_loss = float('-inf')
         if val_data:
-            best_val_loss = float('inf')
+            best_val_loss = float('-inf')
             no_improvement_epochs = 0
 
         for i in range(self.epochs):
@@ -198,7 +201,7 @@ class BaseSGDGMM(ABC):
                     print('Epoch {}, Loss: {}'.format(i, train_loss))
 
             if val_data:
-                if val_loss < best_val_loss:
+                if val_loss > best_val_loss:
                     no_improvement_epochs = 0
                     best_val_loss = val_loss
                 else:
@@ -220,8 +223,7 @@ class BaseSGDGMM(ABC):
             prev_loss = train_loss
 
     def score(self, data):
-        with torch.no_grad():
-            return self.module(data)
+        return self.module(data)
 
     def score_batch(self, dataset):
         loader = data_utils.DataLoader(
@@ -232,12 +234,24 @@ class BaseSGDGMM(ABC):
         )
 
         log_prob = 0
-
-        for j, d in enumerate(loader):
-            d = [a.to(self.device) for a in d]
-            log_prob += torch.sum(self.score(d)).item()
+        with torch.no_grad():
+            for j, d in enumerate(loader):
+                d = [a.to(self.device) for a in d]
+                log_prob += torch.sum(self.score(d)).item()
 
         return log_prob
+    
+    def _sample(self, num_samples):
+        
+        weights = self.module.soft_max(self.module.soft_weights)
+        idx = dist.Categorical(probs=weights).sample([num_samples])
+        X = dist.MultivariateNormal(loc=self.module.means, scale_tril=self.module.L).sample([num_samples])
+        
+        return X[
+            torch.arange(num_samples, device=self.device),
+            idx,
+            :
+        ]
 
     def init_params(self, loader):
         counts, centroids = minibatch_k_means(loader, self.k, max_iters=self.k_means_iters, device=self.device)
