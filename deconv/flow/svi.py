@@ -17,7 +17,7 @@ class SVIFlow(MAFlow):
 
     def __init__(self, dimensions, flow_steps, lr, epochs, context_size=64, hidden_features=128,
                  batch_size=256, kl_warmup=0.2, kl_init_factor=0.5,
-                 n_samples=50, use_iwae=False, device=None):
+                 n_samples=50, grad_clip_norm=None, use_iwae=False, device=None):
         super().__init__(
             dimensions, flow_steps, lr, epochs, batch_size, device
         )
@@ -27,6 +27,7 @@ class SVIFlow(MAFlow):
         self.kl_init_factor = kl_init_factor
         
         self.n_samples = n_samples
+        self.grad_clip_norm = grad_clip_norm
         self.use_iwae = use_iwae
 
         self.model = VariationalAutoencoder(
@@ -116,7 +117,7 @@ class SVIFlow(MAFlow):
 
                 torch.set_default_tensor_type(torch.cuda.FloatTensor)
                 
-                if self.use_iwae and (i >= 5):
+                if self.use_iwae:
                     objective = self.model.log_prob_lower_bound(
                         d,
                         num_samples=self.n_samples
@@ -131,6 +132,11 @@ class SVIFlow(MAFlow):
                 train_loss += torch.sum(objective).item()
                 loss = -1 * torch.mean(objective)
                 loss.backward()
+                if self.grad_clip_norm is not None:
+                    torch.nn.utils.clip_grad_norm_(
+                        self.model.parameters(),
+                        self.grad_clip_norm
+                    )
                 optimiser.step()
                 
             train_loss /= len(data)
