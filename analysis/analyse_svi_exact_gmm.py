@@ -11,7 +11,7 @@ import pandas as pd
 from deconv.gmm.sgd_deconv_gmm import SGDDeconvGMM
 from deconv.gmm.sgd_gmm import SGDGMM
 from deconv.gmm.data import DeconvDataset
-from deconv.flow.svi_gmm import SVIGMMFlow
+from deconv.flow.svi_gmm import SVIGMMExact
 from deconv.utils.data_gen import generate_mixture_data
 
 parser = argparse.ArgumentParser(description='Process SVI on GMM results.')
@@ -46,7 +46,7 @@ test_deconv_gmm = SGDDeconvGMM(
     w=0
 )
 
-svi_gmm = SVIGMMFlow(
+svi_gmm = SVIGMMExact(
     2,
     5,
     device=torch.device('cuda'),

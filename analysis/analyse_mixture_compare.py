@@ -22,7 +22,7 @@ parser.add_argument('iw_results_dir')
 
 args = parser.parse_args()
 
-K = 4
+K = 3
 D = 2
 N = 50000
 
@@ -75,6 +75,7 @@ svi = SVIFlow(
     hidden_features=128
 )
 
+
 results = []
 
 for p in gmm_params:
@@ -108,6 +109,7 @@ for k, params in param_sets.items():
         for p in params[i]:
             svi.model.load_state_dict(torch.load(p))
             with torch.no_grad():
+                svi.model.eval()
                 logv = svi.model._prior.log_prob(z_test[0].to(torch.device('cuda'))).mean().item()
             elbo = svi.score_batch(test_data, num_samples=100) / N
             logp = svi.score_batch(test_data, num_samples=100, log_prob=True) / N

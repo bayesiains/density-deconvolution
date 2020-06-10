@@ -12,6 +12,9 @@ from deconv.gmm.sgd_deconv_gmm import SGDDeconvGMM
 from deconv.gmm.sgd_gmm import SGDGMM
 from deconv.gmm.data import DeconvDataset
 from deconv.flow.svi import SVIFlow
+from deconv.utils.data_gen import generate_mixture_data
+
+_, S, _, _, (z_test, x_test) = generate_mixture_data()
 
 parser = argparse.ArgumentParser(description='Process SVI on GMM results.')
 
@@ -21,60 +24,11 @@ parser.add_argument('iw_results_dir')
 
 args = parser.parse_args()
 
-K = 4
+K = 3
 D = 2
 N = 50000
 
 torch.set_default_tensor_type(torch.FloatTensor)
-
-ref_gmm = SGDDeconvGMM(
-    K,
-    D,
-    batch_size=512,
-    device=torch.device('cpu')
-)
-
-ref_gmm.module.soft_weights.data = torch.zeros(K)
-scale = 2
-
-ref_gmm.module.means.data = torch.Tensor([
-    [-scale, 0],
-    [scale, 0],
-    [0, -scale],
-    [0, scale]
-])
-
-short_std = 0.3
-long_std = 1
-
-stds = torch.Tensor([
-    [short_std, long_std],
-    [short_std, long_std],
-    [long_std, short_std],
-    [long_std, short_std]
-])
-
-ref_gmm.module.l_diag.data = torch.log(stds)
-
-torch.manual_seed(263568)
-
-z_test = ref_gmm.sample_prior(N)
-
-noise_short = 0.1
-noise_long = 1.0
-
-S = torch.Tensor([
-    [noise_short, 0],
-    [0, noise_long]
-])
-
-noise_distribution = torch.distributions.MultivariateNormal(
-    loc=torch.Tensor([0, 0]),
-    covariance_matrix=S
-)
-
-x_test = z_test + noise_distribution.sample([N])
-test_data = DeconvDataset(x_test.squeeze(), S.repeat(N, 1, 1))
 
 pretrained_params = []
 for f in os.listdir(args.pretrain_results_dir):
