@@ -44,6 +44,28 @@ def data_gen(data, n_samples, noise=None, rng=np.random):
 
         return util_shuffle(samples), None
 
+    elif data == 'mixture_final':
+        coins = np.random.choice(
+            4, n_samples, p=[1. / 4, 1. / 4, 1. / 4, 1. / 4])
+        bincounts = np.bincount(coins)
+
+        means = [[-2.0, 0.0], [2.0, 0.0], [0.0, -2.0], [0.0, 2.0]]
+        covars = [[[0.09, 0.0], [0.0, 1.0]],
+                  [[0.09, 0.0], [0.0, 1.0]],
+                  [[1.0, 0.0], [0.0, 0.09]],
+                  [[1.0, 0.0], [0.0, 0.09]]]
+
+        samples = np.zeros((n_samples, 2))
+
+        offset = 0
+        for i in range(4):
+            samples[offset:(offset + bincounts[i])
+                    ] = np.random.multivariate_normal(means[i], covars[i], bincounts[i])
+
+            offset += bincounts[i]
+
+        return util_shuffle(samples), None
+
     elif data == 'mixture_2':
         coins = np.random.choice(2, n_samples, p=[1. / 2, 1. / 2])
         bincounts = np.bincount(coins)
@@ -191,8 +213,8 @@ def data_gen(data, n_samples, noise=None, rng=np.random):
     elif data == 'pinwheel':
         radial_std = 0.3
         tangential_std = 0.1
-        num_classes = 5
-        num_per_class = n_samples // 5
+        num_classes = 3
+        num_per_class = n_samples // num_classes
         rate = 0.25
         rads = np.linspace(0, 2 * np.pi, num_classes, endpoint=False)
 
@@ -206,7 +228,7 @@ def data_gen(data, n_samples, noise=None, rng=np.random):
             [np.cos(angles), -np.sin(angles), np.sin(angles), np.cos(angles)])
         rotations = np.reshape(rotations.T, (-1, 2, 2))
 
-        return 2 * rng.permutation(np.einsum('ti', 'tij->tj', features, rotations)), None
+        return 2 * rng.permutation(np.einsum('ti, tij -> tj', features, rotations)), None
 
     elif data == '2spirals':
         if noise is None:
