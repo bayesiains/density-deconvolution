@@ -4,7 +4,7 @@ from deconv.gmm.sgd_deconv_gmm import SGDDeconvGMM
 
 
 def generate_mixture_data():
-    K = 4
+    K = 3
     D = 2
     N = 50000
     N_val = int(0.25 * N)
@@ -23,7 +23,6 @@ def generate_mixture_data():
 
     ref_gmm.module.means.data = torch.Tensor([
         [-scale, 0],
-        [scale, 0],
         [0, -scale],
         [0, scale]
     ])
@@ -32,7 +31,6 @@ def generate_mixture_data():
     long_std = 1
 
     stds = torch.Tensor([
-        [short_std, long_std],
         [short_std, long_std],
         [long_std, short_std],
         [long_std, short_std]
