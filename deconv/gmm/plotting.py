@@ -18,8 +18,10 @@ def plot_covariance(mean, cov, ax, alpha=0.5, color=None):
         v[0],
         v[1],
         180 + angle,
-        color=color
+        facecolor='none',
+        edgecolor=color,
+        linestyle='--'
     )
     ell.set_clip_box(ax.bbox)
-    ell.set_alpha(alpha)
+    #ell.set_alpha(alpha)
     ax.add_artist(ell)
