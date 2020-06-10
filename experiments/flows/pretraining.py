@@ -24,7 +24,7 @@ D = 2
 N = 50000
 N_val = int(0.25 * N)
 
-_, S, (z_train, x_train), (z_val, x_val), _ = generate_mixture_data()
+ref_gmm, S, (z_train, x_train), (z_val, x_val), _ = generate_mixture_data()
 
 train_data = DeconvDataset(x_train.squeeze(), torch.cholesky(S.repeat(N, 1, 1)))
 val_data = DeconvDataset(x_val.squeeze(), torch.cholesky(S.repeat(N, 1, 1)))

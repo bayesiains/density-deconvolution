@@ -12,7 +12,7 @@
 source ~/.bashrc
 conda activate deconv
 
-python experiments/flows/pretraining.py -f -k 50 -l 0.0001 -e 300 -m 128 results/flows/pretraining_frozen/${SLURM_JOBID}
+python experiments/flows/pretraining.py -f -k 50 -l 0.0001 -e 300 -m 128 results/flows/pretraining_frozen_6/${SLURM_JOBID}
 
 
 

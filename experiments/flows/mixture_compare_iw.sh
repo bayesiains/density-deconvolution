@@ -12,10 +12,9 @@
 source ~/.bashrc
 conda activate deconv
 
-# python experiments/flows/mixture_compare.py -k 1 -e 600 -i -l 0.0001 -m 128 results/flows/iw_4/mixture_compare_01_iw_${SLURM_JOBID}
-# python experiments/flows/mixture_compare.py -k 10 -e 600 -i -l 0.0001 -m 128 results/flows/iw_4/mixture_compare_10_iw_${SLURM_JOBID}
-# python experiments/flows/mixture_compare.py -k 25 -e 600 -i -l 0.0001 -m 128 results/flows/iw_4/mixture_compare_25_iw_${SLURM_JOBID}
-python experiments/flows/mixture_compare.py -k 50 -e 600 -i -l 0.0001 -m 128 results/flows/iw_4/mixture_compare_50_iw_${SLURM_JOBID}
+python experiments/flows/mixture_compare.py -k 10 -e 300 -i -l 0.0001 -m 128 results/flows/iw_8/mixture_compare_10_iw_${SLURM_JOBID}
+python experiments/flows/mixture_compare.py -k 25 -e 300 -i -l 0.0001 -m 128 results/flows/iw_8/mixture_compare_25_iw_${SLURM_JOBID}
+python experiments/flows/mixture_compare.py -k 50 -e 300 -i -l 0.0001 -m 128 results/flows/iw_8/mixture_compare_50_iw_${SLURM_JOBID}
 
 
 
